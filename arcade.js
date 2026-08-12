@@ -176,7 +176,7 @@
     // Focus halo (soft glow in front of the machine)
     const halo = document.createElement('div');
     halo.className = 'halo';
-    halo.style.cssText = 'width:' + (W + 70) + 'px;height:' + (H + 70) + 'px;left:' + (-(W + 70) / 2) + 'px;top:' + (-(H + 70) / 2) + 'px;' +
+    halo.style.cssText = 'width:' + (W + 70) + 'px;height:' + (H + 70) + 'px;left:' + (-(W + 70) / 2) + 'px;top:' + (-H - 35) + 'px;' +
       'transform: translateZ(' + (D / 2 + 10) + 'px);' +
       'background: radial-gradient(ellipse at center, transparent 48%, ' + game.color + '2e 78%, ' + game.color + '59 100%);';
     m.appendChild(halo);
@@ -186,7 +186,7 @@
     box.style.width = W + 'px';
     box.style.height = H + 'px';
     box.style.left = (-W / 2) + 'px';
-    box.style.top = (-H / 2) + 'px'; // box center sits at the machine origin, bottom on the floor
+    box.style.top = (-H) + 'px'; // box hangs from the machine origin, bottom on the floor
     box.style.setProperty('--mc', game.color);
     box.style.setProperty('--mc2', shade(game.color, 0.45));
 

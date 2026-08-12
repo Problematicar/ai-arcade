@@ -132,10 +132,14 @@ body {
 
 #camera {
   position: absolute;
-  inset: 0;
+  /* Sit the camera's local origin exactly on the projection axis (the stage's
+     perspective-origin at screen center) so the forward ray maps to screen
+     center — otherwise everything projects off to one side. */
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
   transform-style: preserve-3d;
-  /* Origin 0 0 so translate/rotate apply about the world origin, not the
-     element center (a centered origin would shift the whole scene). */
   transform-origin: 0 0;
 }
 
