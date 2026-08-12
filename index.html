@@ -9,21 +9,31 @@
 <body>
   <div id="arcade">
     <div id="splash">
-      <div class="scanlines"></div>
-      <div class="vignette"></div>
       <div class="splash-title">AI ARCADE</div>
-      <div class="splash-subtitle">● Game Select ●</div>
+      <div class="splash-subtitle">● WALK THE ARCADE ●</div>
       <div class="splash-prompt">▶ PRESS ANY KEY OR CLICK TO START ◀</div>
     </div>
 
-    <div id="floor">
-      <div id="floor-bg"></div>
-      <div id="cabinet-container"></div>
-      <div id="hud">
-        <span id="game-count">0 / 0</span>
-        <span class="highlight">← → to Select</span>
-        <span class="highlight">ENTER to Play</span>
+    <div id="stage">
+      <div id="camera">
+        <div id="world"></div>
       </div>
+    </div>
+
+    <div id="hud">
+      <span class="hud-group">
+        <span>WASD / ↑↓ MOVE</span>
+        <span>←→ / QE LOOK</span>
+        <span>DRAG MOUSE TO LOOK</span>
+      </span>
+      <span id="hud-center">
+        <span id="game-count">0 / 0</span>
+        <span id="focused-title">— LOOK AROUND —</span>
+      </span>
+      <span class="hud-group">
+        <span>ENTER / CLICK PLAY</span>
+        <span>ESC CANCEL</span>
+      </span>
     </div>
 
     <div class="scanlines"></div>
