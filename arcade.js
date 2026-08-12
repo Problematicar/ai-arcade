@@ -241,10 +241,11 @@
     });
 
     // Footprint in room coordinates, accounting for the machine's rotation:
-    // width runs along the machine's local x, depth along local z.
+    // width runs along the machine's local x, depth along local z. The small
+    // margin keeps the camera a hair off the painted faces.
     const yr = yawDeg * Math.PI / 180;
-    const halfX = Math.abs(Math.cos(yr)) * (W / 2) + Math.abs(Math.sin(yr)) * (D / 2) + 12;
-    const halfZ = Math.abs(Math.sin(yr)) * (W / 2) + Math.abs(Math.cos(yr)) * (D / 2) + 12;
+    const halfX = Math.abs(Math.cos(yr)) * (W / 2) + Math.abs(Math.sin(yr)) * (D / 2) + 8;
+    const halfZ = Math.abs(Math.sin(yr)) * (W / 2) + Math.abs(Math.cos(yr)) * (D / 2) + 8;
 
     const rec = { el: m, game, index, x, z, yaw: yr, halfX, halfZ };
     machines.push(rec);
@@ -336,7 +337,9 @@
       const gR = games[i + 5];
       if (gR) buildMachine(gR, i + 5, ROW_X, rowZ[i], -90 + rightTilt[i]);
     }
-    if (games[0]) buildMachine(games[0], 0, 0, -660, 0);
+    // Featured machine sits flush against the back wall (z -700) instead of
+    // with its back buried inside it.
+    if (games[0]) buildMachine(games[0], 0, 0, -643, 0);
 
     addGapBlockers(ROW_X);
   }

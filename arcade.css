@@ -259,6 +259,9 @@ body {
   top: 0;
   left: 0;
   transform-style: preserve-3d;
+  /* Opaque interior fill so hairline seams between faces never show the
+     hollow inside or the wall behind. */
+  background: #0d0d15;
 }
 
 .face {
