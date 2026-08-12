@@ -1,0 +1,1786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="description" content="IncrementALL — an incremental/idle game. Click to earn points, buy generators, unlock upgrades, and ascend for permanent multipliers. Reach 1Qa points to win!">
+<meta property="og:title" content="IncrementALL">
+<meta property="og:description" content="A complete incremental game. Click → generate → upgrade → ascend → victory at 1,000,000,000,000,000 points!">
+<meta property="og:type" content="game">
+<title>IncrementALL — Incremental Game</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; background: #0e080a; color: #e8d0c0; font-family: 'Segoe UI', system-ui, sans-serif; user-select: none; }
+
+#app {
+  width: 100vw; height: 100vh;
+  display: flex; flex-direction: column;
+  position: relative;
+}
+
+/* ─── Header ─── */
+#header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 16px; flex-shrink: 0;
+  background: rgba(221,68,102,0.04);
+  border-bottom: 1px solid rgba(221,68,102,0.1);
+}
+#header h1 { font-size: 0.95rem; color: #dd4466; letter-spacing: 0.5px; }
+#header .hdr-right { display: flex; align-items: center; gap: 8px; font-size: 0.65rem; opacity: 0.5; }
+#header .hdr-link { cursor: pointer; transition: 0.15s; padding: 0 2px; }
+#header .hdr-link:hover { opacity: 1; color: #dd4466; }
+#header .hdr-link.active { opacity: 1; color: #dd4466; }
+
+/* ─── Stats Bar ─── */
+#stats-bar {
+  display: flex; justify-content: space-around; align-items: center;
+  padding: 5px 16px; flex-shrink: 0;
+  background: rgba(0,0,0,0.2);
+  border-bottom: 1px solid rgba(221,68,102,0.06);
+  font-size: 0.7rem;
+}
+#stats-bar .stat { display: flex; align-items: center; gap: 4px; }
+#stats-bar .stat .val { color: #dd4466; font-weight: bold; font-size: 0.8rem; }
+#stats-bar .stat .label { opacity: 0.5; }
+
+/* ─── Description Banner ─── */
+#desc-banner {
+  flex-shrink: 0; padding: 3px 14px; font-size: 0.6rem; opacity: 0.35;
+  background: rgba(0,0,0,0.15); border-bottom: 1px solid rgba(221,68,102,0.04);
+  text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#desc-banner b { color: #dd4466; opacity: 0.7; }
+
+/* ─── Main Content (click area + tabs side by side on wide) ─── */
+#main {
+  flex: 1; display: flex; flex-direction: column; min-height: 0;
+}
+@media (min-width: 700px) {
+  #main { flex-direction: row; }
+  #main-left { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #main-right { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; border-left: 1px solid rgba(221,68,102,0.06); }
+}
+
+/* ─── Click Area ─── */
+#click-area {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  cursor: pointer; position: relative;
+  padding: 12px 0; flex-shrink: 0;
+  border-bottom: 1px solid rgba(221,68,102,0.06);
+  transition: background 0.05s;
+}
+#click-area:active { background: rgba(221,68,102,0.03); }
+#click-btn {
+  width: 130px; height: 130px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, rgba(221,68,102,0.15), rgba(221,68,102,0.03));
+  border: 2px solid rgba(221,68,102,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.6rem; transition: 0.08s; position: relative;
+}
+#click-btn:active { transform: scale(0.92); border-color: rgba(221,68,102,0.4); }
+#click-btn .pts { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 0.9rem; font-weight: bold; color: #dd4466; }
+#click-value { margin-top: 6px; font-size: 0.65rem; opacity: 0.4; }
+#combo-display { font-size: 0.7rem; font-weight: bold; margin-top: 4px; height: 18px; }
+#combo-display.active { color: #ffd700; }
+#combo-display.combo-5 { color: #ff8844; }
+#combo-display.combo-10 { color: #ff4444; text-shadow: 0 0 10px rgba(255,68,68,0.5); }
+
+/* ─── Buy Quantity Selector ─── */
+#buy-qty-row { display: flex; gap: 4px; margin-bottom: 6px; flex-shrink: 0; }
+.qty-btn { flex: 1; text-align: center; padding: 3px 0; font-size: 0.6rem; cursor: pointer; border: 1px solid rgba(221,68,102,0.12); border-radius: 4px; background: transparent; color: rgba(232,208,192,0.35); font-family: inherit; transition: 0.1s; }
+.qty-btn:hover { border-color: rgba(221,68,102,0.3); color: rgba(232,208,192,0.6); }
+.qty-btn.active { background: rgba(221,68,102,0.12); border-color: #dd4466; color: #dd4466; }
+
+/* ─── Perks Tab ─── */
+#perks-area { text-align: center; padding: 10px 0; }
+#perks-area .locked-msg { font-size: 0.7rem; opacity: 0.4; padding: 20px 0; }
+.perk-item { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid rgba(221,68,102,0.04); text-align: left; }
+.perk-item:last-child { border: none; }
+.perk-info { flex: 1; min-width: 0; }
+.perk-name { font-size: 0.8rem; font-weight: bold; }
+.perk-name .plevel { color: #dd4466; }
+.perk-effect { font-size: 0.6rem; opacity: 0.4; margin-top: 1px; }
+.perk-cost { font-size: 0.55rem; opacity: 0.5; margin-bottom: 1px; }
+.perk-btn { background: rgba(221,68,102,0.1); border: 1px solid rgba(221,68,102,0.2); color: #dd4466; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 0.7rem; font-family: inherit; white-space: nowrap; margin-left: 8px; flex-shrink: 0; }
+.perk-btn:hover { background: rgba(221,68,102,0.2); border-color: #dd4466; }
+.perk-btn.unaffordable { opacity: 0.3; cursor: default; }
+.perk-btn.unaffordable:hover { background: rgba(221,68,102,0.1); border-color: rgba(221,68,102,0.2); }
+
+/* ─── Floating Click Numbers ─── */
+.float-pts {
+  position: absolute; pointer-events: none; font-size: 0.9rem; font-weight: bold;
+  color: #dd4466; z-index: 5;
+  animation: floatUp 0.6s ease-out forwards;
+}
+@keyframes floatUp {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-40px) scale(0.6); }
+}
+
+/* ─── Tab Nav ─── */
+#tab-nav {
+  display: flex; flex-shrink: 0;
+  background: rgba(0,0,0,0.3);
+  border-bottom: 1px solid rgba(221,68,102,0.06);
+}
+.tab-btn {
+  flex: 1; text-align: center; padding: 7px 0;
+  font-size: 0.7rem; color: rgba(192,232,208,0.4);
+  cursor: pointer; transition: 0.15s;
+  border-bottom: 2px solid transparent;
+}
+.tab-btn:hover { color: rgba(192,232,208,0.7); }
+.tab-btn.active { color: #dd4466; border-bottom-color: #dd4466; }
+
+/* ─── Tab Content ─── */
+#tab-content {
+  flex: 1; overflow-y: auto; min-height: 0; display: flex; flex-direction: column;
+}
+#tab-content::-webkit-scrollbar { width: 4px; }
+#tab-content::-webkit-scrollbar-track { background: transparent; }
+#tab-content::-webkit-scrollbar-thumb { background: rgba(221,68,102,0.15); border-radius: 2px; }
+.tab-pane { display: none; padding: 4px 14px; flex: 1; }
+.tab-pane.show { display: block; }
+
+/* ─── Generator Items ─── */
+.gen-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 0; border-bottom: 1px solid rgba(221,68,102,0.04);
+}
+.gen-item:last-child { border: none; }
+.gen-info { flex: 1; min-width: 0; }
+.gen-name { font-size: 0.8rem; font-weight: bold; }
+.gen-name .count { color: #dd4466; margin-left: 4px; }
+.gen-rate { font-size: 0.6rem; opacity: 0.4; margin-top: 1px; }
+.gen-action { text-align: right; flex-shrink: 0; margin-left: 8px; }
+.gen-cost { font-size: 0.6rem; opacity: 0.6; margin-bottom: 2px; white-space: nowrap; }
+.gen-btn {
+  background: rgba(221,68,102,0.1); border: 1px solid rgba(221,68,102,0.2);
+  color: #dd4466; padding: 4px 12px; border-radius: 6px;
+  cursor: pointer; font-size: 0.75rem; font-family: inherit; transition: 0.1s;
+  white-space: nowrap;
+}
+.gen-btn:hover { background: rgba(221,68,102,0.2); border-color: #dd4466; }
+.gen-btn.unaffordable { opacity: 0.3; cursor: default; }
+.gen-btn.unaffordable:hover { background: rgba(221,68,102,0.1); border-color: rgba(221,68,102,0.2); }
+
+/* ─── Upgrade Items ─── */
+.upg-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 0; border-bottom: 1px solid rgba(221,68,102,0.04);
+}
+.upg-item:last-child { border: none; }
+.upg-info { flex: 1; min-width: 0; }
+.upg-name { font-size: 0.8rem; }
+.upg-desc { font-size: 0.6rem; opacity: 0.4; margin-top: 1px; }
+.upg-btn {
+  background: rgba(221,68,102,0.1); border: 1px solid rgba(221,68,102,0.2);
+  color: #dd4466; padding: 4px 12px; border-radius: 6px;
+  cursor: pointer; font-size: 0.7rem; font-family: inherit; transition: 0.1s;
+  white-space: nowrap; margin-left: 8px; flex-shrink: 0;
+}
+.upg-btn:hover { background: rgba(221,68,102,0.2); border-color: #dd4466; }
+.upg-btn.unaffordable { opacity: 0.3; cursor: default; }
+.upg-btn.unaffordable:hover { background: rgba(221,68,102,0.1); border-color: rgba(221,68,102,0.2); }
+.upg-btn.owned { background: rgba(221,68,102,0.05); border-color: rgba(221,68,102,0.08); color: rgba(221,68,102,0.3); cursor: default; opacity: 0.5; }
+
+/* ─── Burst Tab ─── */
+#burst-area { text-align: center; padding: 14px 0; }
+#burst-area h2 { font-size: 0.9rem; color: #dd4466; margin-bottom: 6px; }
+#burst-area p { font-size: 0.7rem; opacity: 0.6; margin-bottom: 4px; }
+#burst-btn {
+  background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.25);
+  color: #ffd700; padding: 10px 30px; border-radius: 10px;
+  cursor: pointer; font-size: 0.9rem; font-family: inherit; font-weight: bold;
+  margin: 10px 0; transition: 0.15s;
+}
+#burst-btn:hover { background: rgba(255,215,0,0.2); border-color: #ffd700; }
+#burst-btn:disabled { opacity: 0.3; cursor: default; }
+#burst-btn:disabled:hover { background: rgba(255,215,0,0.1); border-color: rgba(255,215,0,0.25); }
+.burst-stat { font-size: 0.65rem; opacity: 0.4; margin: 2px 0; }
+.burst-stat b { color: #ffd700; opacity: 1; }
+
+/* ─── Stats Tab ─── */
+#stats-area { padding: 6px 0; }
+.stat-row {
+  display: flex; justify-content: space-between; padding: 3px 0;
+  font-size: 0.7rem; border-bottom: 1px solid rgba(221,68,102,0.04);
+}
+.stat-row .slabel { opacity: 0.5; }
+.stat-row .sval { color: #dd4466; font-weight: bold; }
+
+/* ─── Achievements ─── */
+#ach-section { margin-top: 8px; }
+#ach-section .sec-title { font-size: 0.6rem; opacity: 0.3; text-align: center; margin-bottom: 4px; }
+.ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 5px; }
+.ach-card {
+  background: rgba(221,68,102,0.03); border: 1px solid rgba(221,68,102,0.08);
+  border-radius: 8px; padding: 6px; text-align: center; font-size: 0.55rem; opacity: 0.35;
+}
+.ach-card.unlocked { opacity: 1; border-color: rgba(221,68,102,0.2); background: rgba(221,68,102,0.06); }
+.ach-card .icon { font-size: 1rem; display: block; margin-bottom: 1px; }
+.ach-card .title { font-weight: bold; color: #b0e8d0; }
+.ach-card .desc { opacity: 0.5; margin-top: 1px; }
+
+/* ─── Event Log ─── */
+#event-log {
+  flex-shrink: 0; max-height: 110px; overflow-y: auto;
+  padding: 4px 14px; background: rgba(0,0,0,0.3);
+  border-top: 1px solid rgba(221,68,102,0.08);
+}
+#event-log::-webkit-scrollbar { width: 4px; }
+#event-log::-webkit-scrollbar-track { background: transparent; }
+#event-log::-webkit-scrollbar-thumb { background: rgba(221,68,102,0.15); border-radius: 2px; }
+.log-msg { font-size: 0.6rem; padding: 1px 0; opacity: 0.7; }
+.log-msg .time { opacity: 0.3; margin-right: 4px; }
+.log-msg.event-buy { color: #80d8b0; }
+.log-msg.event-upgrade { color: #88ddcc; }
+.log-msg.event-achieve { color: #ffd700; }
+.log-msg.event-burst { color: #cc88ff; }
+.log-msg.event-milestone { color: #dd4466; }
+
+@media (min-width: 700px) {
+  #event-log { max-height: none; flex: 1; min-height: 0; }
+}
+
+/* ─── Victory Modal ─── */
+#victory-overlay {
+  position: absolute; inset: 0; z-index: 50;
+  background: rgba(0,0,0,0.85); display: none;
+  align-items: center; justify-content: center;
+}
+#victory-overlay.show { display: flex; }
+#victory-panel {
+  background: linear-gradient(180deg, #1a0a0e, #0e080a);
+  border: 1px solid rgba(255,215,0,0.2); border-radius: 16px;
+  padding: 24px; text-align: center; max-width: 360px; width: 85%;
+}
+#victory-panel h2 { font-size: 1.3rem; color: #ffd700; margin-bottom: 6px; }
+#victory-panel .sub { font-size: 0.8rem; opacity: 0.6; margin-bottom: 14px; }
+#victory-panel .vstat { font-size: 0.7rem; opacity: 0.5; margin: 3px 0; }
+#victory-panel .vstat b { color: #dd4466; opacity: 1; }
+#victory-continue {
+  background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.25);
+  color: #ffd700; padding: 8px 24px; border-radius: 10px;
+  cursor: pointer; font-size: 0.85rem; font-family: inherit; font-weight: bold;
+  margin-top: 14px; transition: 0.15s;
+}
+#victory-continue:hover { background: rgba(255,215,0,0.2); border-color: #ffd700; }
+
+/* ─── Toast ─── */
+#toast {
+  position: absolute; top: 40%; left: 50%; transform: translate(-50%,-50%);
+  z-index: 40; pointer-events: none; text-align: center;
+  opacity: 0; transition: none;
+}
+#toast.show { animation: toastAnim 1.4s ease-out forwards; }
+@keyframes toastAnim {
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(0.5); }
+  15% { opacity: 1; transform: translate(-50%,-50%) scale(1.1); }
+  25% { transform: translate(-50%,-50%) scale(1); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%,-60%); }
+}
+#toast .icon { font-size: 1.8rem; display: block; margin-bottom: 2px; }
+#toast .title { font-size: 0.85rem; font-weight: bold; color: #ffd700; }
+#toast .desc { font-size: 0.6rem; opacity: 0.6; }
+
+/* ─── Progress Bar ─── */
+#progress-wrap {
+  padding: 3px 14px; flex-shrink: 0;
+  background: rgba(0,0,0,0.2);
+}
+#progress-bar { height: 4px; background: rgba(221,68,102,0.08); border-radius: 2px; overflow: hidden; }
+#progress-fill {
+  height: 100%; width: 0%; background: linear-gradient(90deg, #dd4466, #ffaa44);
+  border-radius: 2px; transition: width 0.3s;
+}
+#progress-label { font-size: 0.55rem; opacity: 0.35; margin-top: 1px; text-align: right; }
+
+/* ─── Reset Button ─── */
+#reset-area { text-align: center; padding: 16px 0 8px; }
+#reset-btn { background: none; border: 1px solid rgba(221,68,102,0.12); color: rgba(232,208,192,0.2); padding: 4px 14px; border-radius: 6px; cursor: pointer; font-size: 0.55rem; font-family: inherit; transition: 0.15s; }
+#reset-btn:hover { border-color: rgba(255,68,68,0.3); color: rgba(255,68,68,0.5); }
+
+/* ─── Export / Import ─── */
+#export-area { text-align: center; padding: 4px 0 14px; display: flex; gap: 6px; justify-content: center; }
+#export-area button { background: none; border: 1px solid rgba(221,68,102,0.08); color: rgba(232,208,192,0.15); padding: 3px 12px; border-radius: 4px; cursor: pointer; font-size: 0.5rem; font-family: inherit; transition: 0.15s; }
+#export-area button:hover { border-color: rgba(221,68,102,0.2); color: rgba(232,208,192,0.4); }
+
+/* ─── Auto-Buy Toggle ─── */
+#auto-buy-wrap { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 0.55rem; opacity: 0.4; cursor: pointer; user-select: none; flex-shrink: 0; }
+#auto-buy-wrap:hover { opacity: 0.7; }
+#auto-buy-wrap.active { opacity: 0.9; color: #dd4466; }
+#auto-cbx { width: 12px; height: 12px; accent-color: #dd4466; cursor: pointer; }
+
+/* ─── Shortcut Hint ─── */
+#shortcut-hint { text-align: center; font-size: 0.5rem; opacity: 0.12; padding: 4px 0; }
+
+/* ─── Challenge Tab ─── */
+#challenge-area { padding: 8px 0; }
+.challenge-card {
+  background: rgba(221,68,102,0.03); border: 1px solid rgba(221,68,102,0.08);
+  border-radius: 8px; padding: 10px; margin-bottom: 8px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.challenge-card.completed { opacity: 0.5; }
+.challenge-info { flex: 1; min-width: 0; }
+.challenge-name { font-size: 0.8rem; font-weight: bold; }
+.challenge-name .icon { margin-right: 4px; }
+.challenge-desc { font-size: 0.6rem; opacity: 0.5; margin-top: 2px; }
+.challenge-bonus { font-size: 0.55rem; opacity: 0.4; margin-top: 1px; color: #ffd700; }
+.challenge-btn {
+  background: rgba(221,68,102,0.1); border: 1px solid rgba(221,68,102,0.2);
+  color: #dd4466; padding: 6px 16px; border-radius: 6px;
+  cursor: pointer; font-size: 0.7rem; font-family: inherit; flex-shrink: 0; margin-left: 8px;
+}
+.challenge-btn:hover { background: rgba(221,68,102,0.2); border-color: #dd4466; }
+.challenge-btn.done { background: rgba(100,200,100,0.1); border-color: rgba(100,200,100,0.2); color: rgba(100,200,100,0.5); cursor: default; }
+.challenge-btn.active { background: rgba(255,215,0,0.1); border-color: #ffd700; color: #ffd700; }
+.challenge-msg { font-size: 0.6rem; opacity: 0.35; text-align: center; padding: 14px 0; }
+#challenge-active-banner {
+  text-align: center; padding: 6px; margin-bottom: 8px;
+  background: rgba(255,215,0,0.06); border: 1px solid rgba(255,215,0,0.12);
+  border-radius: 6px; font-size: 0.65rem;
+}
+#challenge-active-banner .chal-title { color: #ffd700; font-weight: bold; }
+#challenge-abandon { background: none; border: 1px solid rgba(255,68,68,0.12); color: rgba(255,68,68,0.4); padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 0.5rem; font-family: inherit; margin-left: 8px; }
+#challenge-abandon:hover { border-color: rgba(255,68,68,0.3); color: rgba(255,68,68,0.6); }
+.challenge-goal { font-size: 0.55rem; opacity: 0.45; margin-top: 1px; }
+.challenge-progress { height: 4px; background: rgba(255,215,0,0.1); border-radius: 2px; margin: 4px 0; overflow: hidden; }
+.challenge-progress-fill { height: 100%; background: #ffd700; border-radius: 2px; transition: width 0.3s; }
+#challenge-active-banner .challenge-goal { font-size: 0.6rem; opacity: 0.6; }
+#challenge-active-banner .challenge-progress { margin: 4px auto; max-width: 200px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <h1>⊞ IncrementALL</h1>
+    <div class="hdr-right">
+      <span class="tab-btn hdr-link" data-tab="challenge">🏁</span>
+      <span class="tab-btn hdr-link" data-tab="stats">📊</span>
+      <span id="save-status">•</span>
+    </div>
+  </div>
+
+  <div id="stats-bar">
+    <div class="stat"><span class="label">Points</span> <span class="val" id="points-display">0</span></div>
+    <div class="stat"><span class="label">/s</span> <span class="val" id="pps-display">0</span></div>
+    <div class="stat"><span class="label">Total</span> <span class="val" id="total-display">0</span></div>
+    <div class="stat"><span class="label">Asc</span> <span class="val" id="burst-count-stat">0</span></div>
+    <div class="stat"><span class="label">✦</span> <span class="val" id="transcend-stat">0</span></div>
+  </div>
+
+  <div id="desc-banner"><b>⊞ IncrementALL</b> — Click · Combo · 10 Generators · 28 Upgrades · Auto-click · <b>Ascend</b> (100×) · <b>Transcend</b> ✨ · <b>7 Challenges</b> 🏁 · Perks · Reach infinity!</div>
+
+  <div id="main">
+    <div id="main-left">
+      <div id="click-area">
+        <div id="click-btn">
+          <span class="pts" id="click-pts">0</span>
+        </div>
+      <div id="click-value">+1 per click</div>
+      <div id="combo-display"></div>
+    </div>
+
+      <div id="progress-wrap">
+        <div id="progress-bar"><div id="progress-fill"></div></div>
+        <div id="progress-label">0</div>
+      </div>
+
+      <div id="tab-nav">
+        <div class="tab-btn active" data-tab="generate">⚡ Gen</div>
+        <div class="tab-btn" data-tab="upgrades">⬆ Upg</div>
+        <div class="tab-btn" data-tab="perks">💎 Perks</div>
+        <div class="tab-btn" data-tab="burst">🌀 Burst</div>
+      </div>
+
+      <div id="tab-content">
+        <div class="tab-pane show" id="pane-generate">
+          <div id="auto-buy-wrap"><input type="checkbox" id="auto-cbx"> Auto-buy cheapest generator</div>
+          <div id="buy-qty-row">
+            <button class="qty-btn active" data-qty="1">×1</button>
+            <button class="qty-btn" data-qty="10">×10</button>
+            <button class="qty-btn" data-qty="100">×100</button>
+            <button class="qty-btn" data-qty="max">MAX</button>
+          </div>
+        </div>
+        <div class="tab-pane" id="pane-upgrades">
+          <div id="buy-qty-row-upg">
+            <button class="qty-btn active" data-qty="1">×1</button>
+            <button class="qty-btn" data-qty="10">×10</button>
+            <button class="qty-btn" data-qty="100">×100</button>
+          </div>
+        </div>
+        <div class="tab-pane" id="pane-perks">
+          <div id="perks-area"></div>
+        </div>
+        <div class="tab-pane" id="pane-burst">
+          <div id="burst-area">
+            <h2>🌀 Ascension</h2>
+            <p>Reset your progress for a permanent multiplier.</p>
+            <div id="burst-preview"></div>
+            <button id="burst-btn" disabled>ASCEND</button>
+            <div class="burst-stat">Current: <b id="burst-mult">1.00x</b> &middot; Ascensions: <b id="burst-count">0</b></div>
+            <div id="transcend-area" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid rgba(221,68,102,0.1)">
+              <h2 style="font-size:0.9rem;color:#aa88ff;margin-bottom:6px">✨ Transcendence</h2>
+              <p style="font-size:0.7rem;opacity:0.6;margin-bottom:4px">Reset everything for a permanent global multiplier. Requires 100 ascensions.</p>
+              <div id="transcend-preview"></div>
+              <button id="transcend-btn" disabled style="background:rgba(170,136,255,0.1);border:1px solid rgba(170,136,255,0.25);color:#aa88ff;padding:10px 30px;border-radius:10px;cursor:pointer;font-size:0.9rem;font-family:inherit;font-weight:bold;margin:10px 0;transition:0.15s">TRANSCEND</button>
+              <div class="burst-stat">Level: <b id="transcend-level">0</b> &middot; Global Mult: <b id="transcend-mult">1.00x</b></div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane" id="pane-challenge">
+          <div id="challenge-area"></div>
+        </div>
+        <div class="tab-pane" id="pane-stats">
+          <div id="stats-area"></div>
+          <div id="ach-section">
+            <div class="sec-title">Achievements</div>
+            <div id="ach-grid" class="ach-grid"></div>
+          </div>
+          <div id="reset-area"><button id="reset-btn">Reset</button></div>
+          <div id="export-area"><button id="export-btn">Export Save</button><button id="import-btn">Import Save</button></div>
+           <div id="shortcut-hint">1-4 tabs · 5 chal · 6 stats · A auto-buy · B ascend · T transcend · E export · R reset</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="main-right">
+      <div id="event-log"></div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <div id="victory-overlay">
+    <div id="victory-panel">
+      <h2>👑 Victory!</h2>
+      <div class="sub">You have mastered IncrementALL</div>
+      <div class="vstat">Total points: <b id="v-total">0</b></div>
+      <div class="vstat">Ascensions: <b id="v-bursts">0</b></div>
+      <div class="vstat">Generators built: <b id="v-gens">0</b></div>
+      <div class="vstat">Time played: <b id="v-time">0s</b></div>
+      <button id="victory-continue">Continue Playing</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   IncrementALL — A complete incremental game
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+/* ═══════════════════════════════ Definitions ═══════════════════════════════ */
+
+const GENERATORS = [
+  { id:'ac',  name:'Auto-Clicker',    emoji:'🖱️',  base:2,    cost:15   },
+  { id:'bot', name:'Tiny Bot',        emoji:'🤖',  base:8,    cost:100  },
+  { id:'spr', name:'Data Sprite',     emoji:'💿',  base:32,   cost:500  },
+  { id:'qnd', name:'Quantum Node',    emoji:'🔮',  base:128,  cost:2500 },
+  { id:'nex', name:'Nexus Core',      emoji:'⚛️',  base:512,  cost:12500 },
+  { id:'str', name:'Star Engine',     emoji:'⭐',  base:2048, cost:62500 },
+  { id:'wea', name:'Reality Weave',   emoji:'🌀',  base:8192, cost:312500 },
+  { id:'loop',name:'Cosmic Looper',   emoji:'♾️',  base:32768,cost:1562500 },
+  { id:'omni',name:'Omni Matrix',     emoji:'🌌',  base:131072,cost:7812500 },
+  { id:'void',name:'Void Resonator',  emoji:'🕳️',  base:524288,cost:39e6 },
+];
+
+const UPGRADES = [
+  { id:'click1',  name:'Click Power I',    desc:'+1 per click',        cost:25,    type:'click',  val:1     },
+  { id:'click2',  name:'Click Power II',   desc:'+2 per click',        cost:250,   type:'click',  val:2     },
+  { id:'click3',  name:'Click Power III',  desc:'+5 per click',        cost:2500,  type:'click',  val:5     },
+  { id:'click4',  name:'Click Power IV',   desc:'+10 per click',       cost:25000, type:'click',  val:10    },
+  { id:'click5',  name:'Click Power V',    desc:'+25 per click',       cost:250000,type:'click',  val:25    },
+  { id:'click6',  name:'Click Power VI',   desc:'+100 per click',      cost:2.5e6, type:'click',  val:100   },
+  { id:'click7',  name:'Click Power VII',  desc:'+250 per click',      cost:25e6,  type:'click',  val:250   },
+  { id:'click8',  name:'Click Power VIII', desc:'+500 per click',      cost:250e6, type:'click',  val:500   },
+  { id:'eff1',    name:'Efficiency I',     desc:'×1.5 production',     cost:50,    type:'eff',   val:1.5   },
+  { id:'eff2',    name:'Efficiency II',    desc:'×2 production',       cost:500,   type:'eff',   val:2     },
+  { id:'eff3',    name:'Efficiency III',   desc:'×3 production',       cost:5000,  type:'eff',   val:3     },
+  { id:'eff4',    name:'Efficiency IV',    desc:'×5 production',       cost:50000, type:'eff',   val:5     },
+  { id:'eff5',    name:'Efficiency V',     desc:'×10 production',      cost:500000,type:'eff',   val:10    },
+  { id:'eff6',    name:'Efficiency VI',    desc:'×25 production',      cost:5e6,   type:'eff',   val:25    },
+  { id:'eff7',    name:'Efficiency VII',   desc:'×50 production',      cost:50e6,  type:'eff',   val:50    },
+  { id:'burst1',  name:'Burst Power I',    desc:'×1.5 ascension gain', cost:1e6,   type:'burst', val:1.5   },
+  { id:'burst2',  name:'Burst Power II',   desc:'×2 ascension gain',   cost:5e6,   type:'burst', val:2     },
+  { id:'burst3',  name:'Burst Power III',  desc:'×3 ascension gain',   cost:25e6,  type:'burst', val:3     },
+  { id:'auto1',   name:'Auto-Click I',     desc:'+0.5 auto clicks/s',  cost:500,   type:'auto',  val:0.5   },
+  { id:'auto2',   name:'Auto-Click II',    desc:'+1 auto click/s',     cost:5000,  type:'auto',  val:1     },
+  { id:'auto3',   name:'Auto-Click III',   desc:'+2 auto clicks/s',    cost:50000, type:'auto',  val:2     },
+  { id:'auto4',   name:'Auto-Click IV',    desc:'+5 auto clicks/s',    cost:500e6, type:'auto',  val:5     },
+  { id:'click9',  name:'Click Power IX',   desc:'+1000 per click',     cost:2.5e9, type:'click', val:1000  },
+  { id:'click10', name:'Click Power X',    desc:'+5000 per click',     cost:25e9,  type:'click', val:5000  },
+  { id:'eff8',    name:'Efficiency VIII',  desc:'×100 production',     cost:500e6, type:'eff',   val:100   },
+  { id:'eff9',    name:'Efficiency IX',    desc:'×500 production',     cost:10e9,  type:'eff',   val:500   },
+  { id:'burst4',  name:'Burst Power IV',   desc:'×5 ascension gain',   cost:250e6, type:'burst', val:5     },
+];
+
+const PERKS = [
+  { id:'perk_prod',  name:'Production Boost',  desc:'+5% production per level',  baseCost:5000,  scale:2.5, maxLevel:50,  icon:'⚡' },
+  { id:'perk_click', name:'Click Surge',       desc:'+1 per click per level',    baseCost:3000,  scale:2,   maxLevel:30,  icon:'👆' },
+  { id:'perk_start', name:'Head Start',        desc:'Start with more points',    baseCost:1000,  scale:3,   maxLevel:20,  icon:'🚀' },
+  { id:'perk_auto',  name:'Auto Harmony',      desc:'+0.1 auto clicks/s per lvl',baseCost:8000,  scale:2.2, maxLevel:25,  icon:'🔄' },
+];
+
+const ACHIEVEMENTS = [
+  { id:'first_click',  icon:'👆', title:'First Click',      desc:'Click once',                    check:s=>s.totalClicks>=1 },
+  { id:'ten_clicks',   icon:'🖱️', title:'Clicker',         desc:'Click 10 times',                check:s=>s.totalClicks>=10 },
+  { id:'combo5',       icon:'🔥', title:'On Fire',          desc:'Reach 5x combo',                check:s=>s.maxCombo>=5 },
+  { id:'combo20',      icon:'💥', title:'Unstoppable',      desc:'Reach 20x combo',               check:s=>s.maxCombo>=20 },
+  { id:'ac_owner',     icon:'🖱️', title:'Auto Pilot',      desc:'Buy an Auto-Clicker',           check:s=>s.gens.ac>=1 },
+  { id:'bot_owner',    icon:'🤖', title:'Bot Friend',       desc:'Buy a Tiny Bot',                check:s=>s.gens.bot>=1 },
+  { id:'spr_owner',    icon:'💿', title:'Data Miner',       desc:'Buy a Data Sprite',             check:s=>s.gens.spr>=1 },
+  { id:'qnd_owner',    icon:'🔮', title:'Quantum Leap',     desc:'Buy a Quantum Node',            check:s=>s.gens.qnd>=1 },
+  { id:'nex_owner',    icon:'⚛️', title:'Core Power',       desc:'Buy a Nexus Core',              check:s=>s.gens.nex>=1 },
+  { id:'str_owner',    icon:'⭐', title:'Stellar Engine',   desc:'Buy a Star Engine',             check:s=>s.gens.str>=1 },
+  { id:'wea_owner',    icon:'🌀', title:'Reality Bender',   desc:'Buy a Reality Weave',           check:s=>s.gens.wea>=1 },
+  { id:'loop_owner',   icon:'♾️', title:'Infinite Loop',    desc:'Buy a Cosmic Looper',           check:s=>s.gens.loop>=1 },
+  { id:'omni_owner',   icon:'🌌', title:'Omnipresent',      desc:'Buy an Omni Matrix',            check:s=>s.gens.omni>=1 },
+  { id:'void_owner',   icon:'🕳️', title:'Void Walker',      desc:'Buy a Void Resonator',          check:s=>s.gens.void>=1 },
+  { id:'first_burst',  icon:'🌀', title:'Ascension',        desc:'Perform your first ascension',  check:s=>s.bursts>=1 },
+  { id:'click_upg',    icon:'⬆️', title:'Click Master',     desc:'Buy 3 click upgrades',          check:s=>(s.clickBought||0)>=3 },
+  { id:'eff_upg',      icon:'⬆️', title:'Efficiency Expert',desc:'Buy 3 efficiency upgrades',     check:s=>(s.effBought||0)>=3 },
+  { id:'ten_gens',     icon:'⚙️', title:'Mass Production',  desc:'Own 10 total generators',       check:s=>Object.values(s.gens).reduce((a,b)=>a+b,0)>=10 },
+  { id:'hundred_gens', icon:'🏭', title:'Factory Owner',    desc:'Own 100 total generators',      check:s=>Object.values(s.gens).reduce((a,b)=>a+b,0)>=100 },
+  { id:'thousand_gens',icon:'🏗️', title:'Industrialist',    desc:'Own 1,000 total generators',    check:s=>Object.values(s.gens).reduce((a,b)=>a+b,0)>=1000 },
+  { id:'first_perk',   icon:'💎', title:'Perk It Up',       desc:'Buy your first perk',           check:s=>Object.keys(s.perks).length>0 },
+  { id:'max_perks',    icon:'💠', title:'Perfectionist',    desc:'Max out a perk',                check:s=>{for(let k in s.perks){const p=PERKS.find(x=>x.id===k);if(p&&s.perks[k]>=p.maxLevel)return true}return false} },
+  { id:'million',      icon:'👑', title:'IncrementALL',     desc:'Reach 1M total points',         check:s=>s.totalPoints>=1e6 },
+  { id:'ten_million',  icon:'💫', title:'Stellar',          desc:'Reach 10M total points',        check:s=>s.totalPoints>=1e7 },
+  { id:'hundred_mil',  icon:'🌟', title:'Galactic',         desc:'Reach 100M total points',       check:s=>s.totalPoints>=1e8 },
+  { id:'billion',      icon:'🌠', title:'Universal',        desc:'Reach 1B total points',         check:s=>s.totalPoints>=1e9 },
+  { id:'ten_billion',  icon:'💫', title:'Cosmic',           desc:'Reach 10B total points',        check:s=>s.totalPoints>=1e10 },
+  { id:'hundred_bil',  icon:'🌟', title:'Nebular',          desc:'Reach 100B total points',       check:s=>s.totalPoints>=1e11 },
+  { id:'trillion',     icon:'🌌', title:'Interstellar',     desc:'Reach 1T total points',         check:s=>s.totalPoints>=1e12 },
+  { id:'combo50',      icon:'⚡', title:'Inferno Combo',     desc:'Reach 50x combo',               check:s=>s.maxCombo>=50 },
+  { id:'combo100',     icon:'💥', title:'Godlike Combo',     desc:'Reach 100x combo',              check:s=>s.maxCombo>=100 },
+  { id:'all_gens',     icon:'🏛️', title:'Collector',         desc:'Own at least 1 of each generator',check:s=>GENERATORS.every(g=>s.gens[g.id]>=1) },
+  { id:'five_hundred', icon:'🏗️', title:'Magnate',          desc:'Own 500 total generators',      check:s=>Object.values(s.gens).reduce((a,b)=>a+b,0)>=500 },
+  { id:'five_thousand',icon:'🏭', title:'Tycoon',           desc:'Own 5,000 total generators',    check:s=>Object.values(s.gens).reduce((a,b)=>a+b,0)>=5000 },
+  { id:'ten_ascend',   icon:'🌀', title:'Ascended',         desc:'Perform 10 ascensions',         check:s=>s.bursts>=10 },
+  { id:'fifty_ascend', icon:'🌀', title:'Transcender',      desc:'Perform 50 ascensions',         check:s=>s.bursts>=50 },
+  { id:'hundred_ascend',icon:'🌀', title:'Ascension Master', desc:'Perform 100 ascensions',        check:s=>s.bursts>=100 },
+  { id:'million_clicks',icon:'🖱️', title:'Clicktastic',     desc:'Click 1,000,000 times',         check:s=>s.totalClicks>=1e6 },
+  { id:'all_upgrades', icon:'⬆️', title:'Completionist',    desc:'Buy every upgrade',             check:s=>UPGRADES.every(u=>s.upgrades[u.id]) },
+  { id:'transcend',    icon:'✨', title:'Beyond Infinity',  desc:'Transcend once',                check:s=>s.transcendLevel>=1 },
+];
+
+/* ═══════════════════════════════ State ═══════════════════════════════ */
+
+const LS_KEY = 'incrementall_save';
+
+const state = {
+  points: 0,
+  totalPoints: 0,
+  totalClicks: 0,
+  bursts: 0,
+  burstMult: 1,
+  gens: {},
+  upgrades: {},
+  achievements: {},
+  lastTick: Date.now(),
+  playTime: 0,
+  victoryShown: false,
+  clickBought: 0,
+  effBought: 0,
+  burstBought: 0,
+  autoBought: 0,
+  buyQty: 1,
+  combo: 0,
+  maxCombo: 0,
+  perks: {},
+  autoAccum: 0,
+  autoBuy: false,
+  transcendLevel: 0,
+  transcendMult: 1,
+  challenges: {},
+  challengeActive: null,
+  challengeData: {},
+};
+
+function getGenCount(id) { return state.gens[id] || 0; }
+
+function getGenCost(id) {
+  const g = GENERATORS.find(x => x.id === id);
+  if (!g) return Infinity;
+  let cost = Math.floor(g.cost * Math.pow(1.15, getGenCount(id)));
+  if (state.challengeActive === 'ch_poor') cost *= 10;
+  return cost;
+}
+
+function getClickPower() {
+  const ids = ['click1','click2','click3','click4','click5','click6','click7','click8','click9','click10'];
+  let p = 1;
+  for (const id of ids) if (state.upgrades[id]) p += UPGRADES.find(u=>u.id===id).val;
+  // Perk bonus
+  const perkLvl = state.perks.perk_click || 0;
+  p += perkLvl;
+  return Math.floor(p * getGlobalMult() * getChallengeMult());
+}
+
+function getEffMult() {
+  const ids = ['eff1','eff2','eff3','eff4','eff5','eff6','eff7','eff8','eff9'];
+  let m = 1;
+  for (const id of ids) if (state.upgrades[id]) m *= UPGRADES.find(u=>u.id===id).val;
+  // Perk production bonus
+  const perkLvl = state.perks.perk_prod || 0;
+  m *= 1 + perkLvl * 0.05;
+  return m * getGlobalMult() * getChallengeMult();
+}
+
+function getBurstPowerUpg() {
+  const ids = ['burst1','burst2','burst3','burst4'];
+  let m = 1;
+  for (const id of ids) if (state.upgrades[id]) m *= UPGRADES.find(u=>u.id===id).val;
+  return m;
+}
+
+function getAutoRate() {
+  let r = 0;
+  const ids = ['auto1','auto2','auto3','auto4'];
+  for (const id of ids) if (state.upgrades[id]) r += UPGRADES.find(u=>u.id===id).val;
+  // Perk bonus
+  r += (state.perks.perk_auto || 0) * 0.1;
+  // Each Auto-Clicker generator gives 0.5 auto clicks/s
+  r += (state.gens.ac || 0) * 0.5;
+  return r;
+}
+
+function getPerkLevel(id) { return state.perks[id] || 0; }
+
+function getStartPoints() {
+  const lvl = state.perks.perk_start || 0;
+  if (lvl <= 0) return 0;
+  // Start with 50 * perkLevel points
+  return 50 * lvl;
+}
+
+function getTotalGens() {
+  return Object.values(state.gens).reduce((a,b)=>a+b, 0);
+}
+
+function getPPS() {
+  const eff = getEffMult() * state.burstMult;
+  let pps = 0;
+  // Clickomania challenge: no generator income
+  if (state.challengeActive !== 'ch_click') {
+    for (const g of GENERATORS) {
+      // Speed Run challenge: income decays 50% per tier
+      let base = g.base;
+      if (state.challengeActive === 'ch_speed') {
+        const tier = GENERATORS.indexOf(g);
+        base = base * Math.pow(0.5, tier);
+      }
+      pps += base * getGenCount(g.id) * eff;
+    }
+  }
+  // Add auto-click value as PPS equivalent
+  const autoRate = getAutoRate();
+  if (autoRate > 0) pps += autoRate * getClickPower();
+  return pps;
+}
+
+/* ═══════════════════════════ Formatting ═══════════════════════════ */
+
+function formatNum(n) {
+  if (n >= 1e30) return n.toExponential(2);
+  if (n >= 1e27) return (n / 1e27).toFixed(2) + 'Oc';
+  if (n >= 1e24) return (n / 1e24).toFixed(2) + 'Sp';
+  if (n >= 1e21) return (n / 1e21).toFixed(2) + 'Sx';
+  if (n >= 1e18) return (n / 1e18).toFixed(2) + 'Qi';
+  if (n >= 1e15) return (n / 1e15).toFixed(2) + 'Qa';
+  if (n >= 1e12) return (n / 1e12).toFixed(2) + 'T';
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  if (n < 1 && n > 0) return n.toExponential(1);
+  return Math.floor(n).toLocaleString();
+}
+
+function formatTime(ms) {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return s + 's';
+  const m = Math.floor(s / 60);
+  if (m < 60) return m + 'm ' + (s % 60) + 's';
+  const h = Math.floor(m / 60);
+  return h + 'h ' + (m % 60) + 'm';
+}
+
+/* ═══════════════════════════ Audio ═══════════════════════════ */
+
+let _actx = null;
+function getAudioCtx() {
+  if (!_actx) _actx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_actx.state === 'suspended') _actx.resume();
+  return _actx;
+}
+function playSound(type) {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    const t = ctx.currentTime;
+    switch (type) {
+      case 'click':
+        osc.frequency.setValueAtTime(660, t);
+        osc.frequency.exponentialRampToValueAtTime(880, t + 0.04);
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0.08, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+        osc.start(t); osc.stop(t + 0.06);
+        break;
+      case 'buy':
+        osc.frequency.setValueAtTime(440, t);
+        osc.frequency.exponentialRampToValueAtTime(660, t + 0.08);
+        osc.type = 'triangle';
+        gain.gain.setValueAtTime(0.06, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+        osc.start(t); osc.stop(t + 0.1);
+        break;
+      case 'upgrade':
+        osc.frequency.setValueAtTime(523, t);
+        osc.frequency.setValueAtTime(659, t + 0.06);
+        osc.frequency.setValueAtTime(784, t + 0.12);
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0.07, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+        osc.start(t); osc.stop(t + 0.2);
+        break;
+      case 'achieve':
+        [523, 659, 784, 1047].forEach((f, i) => {
+          const o2 = ctx.createOscillator();
+          const g2 = ctx.createGain();
+          o2.connect(g2); g2.connect(ctx.destination);
+          o2.frequency.value = f; o2.type = 'sine';
+          g2.gain.setValueAtTime(0, t + i * 0.1);
+          g2.gain.setValueAtTime(0.07, t + i * 0.1 + 0.02);
+          g2.gain.exponentialRampToValueAtTime(0.001, t + i * 0.1 + 0.2);
+          o2.start(t + i * 0.1); o2.stop(t + i * 0.1 + 0.2);
+        });
+        break;
+      case 'burst':
+        osc.frequency.setValueAtTime(200, t);
+        osc.frequency.exponentialRampToValueAtTime(1200, t + 0.4);
+        osc.type = 'sawtooth';
+        gain.gain.setValueAtTime(0.05, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        osc.start(t); osc.stop(t + 0.5);
+        break;
+      case 'transcend':
+        osc.frequency.setValueAtTime(100, t);
+        osc.frequency.exponentialRampToValueAtTime(2000, t + 0.8);
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0.06, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
+        osc.start(t); osc.stop(t + 1.0);
+        break;
+      case 'challenge':
+        [440, 554, 659, 880].forEach((f, i) => {
+          const o2 = ctx.createOscillator();
+          const g2 = ctx.createGain();
+          o2.connect(g2); g2.connect(ctx.destination);
+          o2.frequency.value = f; o2.type = 'triangle';
+          g2.gain.setValueAtTime(0, t + i * 0.12);
+          g2.gain.setValueAtTime(0.08, t + i * 0.12 + 0.02);
+          g2.gain.exponentialRampToValueAtTime(0.001, t + i * 0.12 + 0.25);
+          o2.start(t + i * 0.12); o2.stop(t + i * 0.12 + 0.25);
+        });
+        break;
+    }
+  } catch(e) { /* audio not available */ }
+}
+
+/* ═══════════════════════════ Event Log ═══════════════════════════ */
+
+function addLog(type, text) {
+  const log = document.getElementById('event-log');
+  const t = new Date();
+  const ts = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0');
+  const el = document.createElement('div');
+  el.className = 'log-msg event-' + type;
+  el.innerHTML = '<span class="time">' + ts + '</span>' + text;
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+  // Keep last 50 messages
+  while (log.children.length > 50) log.removeChild(log.firstChild);
+}
+
+/* ═══════════════════════════ Core Mechanics ═══════════════════════════ */
+
+function doClick(e) {
+  playSound('click');
+  const power = getClickPower();
+  const combo = state.combo || 0;
+  const comboMult = 1 + combo * 0.1; // +0.1x per combo level
+  const pts = Math.floor(power * comboMult);
+  state.points += pts;
+  state.totalPoints += pts;
+  state.totalClicks++;
+  state.combo = (state.combo || 0) + 1;
+  if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+  // Reset combo decay
+  if (state.comboDecay) clearTimeout(state.comboDecay);
+  state.comboDecay = setTimeout(() => {
+    state.combo = 0;
+    updateUI();
+  }, 1200);
+
+  checkAchievements();
+  updateUI();
+
+  // Floating number (show combo mult if >1)
+  const area = document.getElementById('click-area');
+  const rect = area.getBoundingClientRect();
+  const x = e ? (e.clientX - rect.left) : (rect.width / 2);
+  const y = e ? (e.clientY - rect.top) : (rect.height / 2);
+  const fl = document.createElement('div');
+  fl.className = 'float-pts';
+  fl.textContent = '+' + pts + (comboMult > 1 ? ' (×' + comboMult.toFixed(1) + ')' : '');
+  fl.style.left = x + 'px'; fl.style.top = y + 'px';
+  area.appendChild(fl);
+  setTimeout(() => fl.remove(), 600);
+
+  // Button squish
+  const btn = document.getElementById('click-btn');
+  btn.style.transform = 'scale(0.92)';
+  clearTimeout(btn._squish);
+  btn._squish = setTimeout(() => { btn.style.transform = ''; }, 80);
+}
+
+function canAfford(cost) { return state.points >= cost; }
+
+function getBuyQty() { return state.buyQty; }
+
+function countAffordable(baseCost) {
+  // How many can we afford right now using points?
+  const owned = Object.values(state.gens).reduce((a,b)=>a+b, 0); // not per-gen
+  // Actually we need per-gen count. Let's compute differently below.
+  // We'll use a simpler approach: just try buying until can't afford, or use formula
+  return 0; // placeholder, handled in buyGen
+}
+
+function buyGen(id) {
+  const g = GENERATORS.find(x => x.id === id);
+  if (!g) return;
+  const owned = getGenCount(id);
+  const baseCostIni = getGenCost(id);
+  if (!canAfford(baseCostIni)) return;
+
+  let qty = getBuyQty();
+  if (qty === 'max') {
+    // Calculate max affordable using geometric series
+    // cost(k) = g.cost * 1.15^(owned + k)
+    // total = g.cost * 1.15^owned * (1.15^n - 1) / 0.15
+    const c = state.points * 0.15 / (g.cost * Math.pow(1.15, owned));
+    if (c <= 0) { qty = 1; }
+    else {
+      const n = Math.floor(Math.log(1 + c) / Math.log(1.15));
+      qty = Math.min(n, 100000);
+    }
+    if (qty <= 0) qty = 1;
+  }
+
+  let bought = 0;
+  for (let i = 0; i < qty; i++) {
+    const cost = getGenCost(id);
+    if (!canAfford(cost)) break;
+    state.points -= cost;
+    state.gens[id] = (state.gens[id] || 0) + 1;
+    bought++;
+  }
+
+  if (bought > 0) {
+    playSound('buy');
+    addLog('buy', g.emoji + ' ×' + bought + ' ' + g.name + ' (#' + state.gens[id] + ')');
+    checkAchievements();
+  }
+  updateUI();
+  saveState();
+}
+
+function renderChallenges() {
+  const area = document.getElementById('challenge-area');
+  if (!area) return;
+  if (state.bursts < 10 && !state.challengeActive && !state.challenges[CHALLENGES[0].id]) {
+    area.innerHTML = '<div class="challenge-msg">🌀 Complete 10 ascensions to unlock challenges!</div>';
+    return;
+  }
+  let html = '';
+  // Active challenge banner
+  if (state.challengeActive) {
+    const c = CHALLENGES.find(x => x.id === state.challengeActive);
+    const goalLabel = typeof c.goal === 'number' ? formatNum(c.goal) + ' pts' : c.goal;
+    const progress = typeof c.goal === 'number' && c.goal > 0 ? Math.min(100, state.totalPoints / c.goal * 100) : 0;
+    html += '<div id="challenge-active-banner">' +
+      '<span class="chal-title">🏁 Active Challenge: ' + (c ? c.name : '') + '</span>' +
+      ' — ' + (c ? c.desc : '') +
+      (progress > 0 ? '<div class="challenge-progress"><div class="challenge-progress-fill" style="width:' + progress + '%"></div></div>' : '') +
+      '<div class="challenge-goal">Goal: ' + goalLabel + (progress > 0 ? ' (' + formatNum(state.totalPoints) + ')' : '') + '</div>' +
+      '<button id="challenge-abandon" onclick="abandonChallenge()">Abandon</button></div>';
+  }
+  for (const c of CHALLENGES) {
+    const done = state.challenges[c.id];
+    const isActive = state.challengeActive === c.id;
+    const canStart = !done && !state.challengeActive && state.bursts >= 10;
+    html += '<div class="challenge-card' + (done ? ' completed' : '') + '">' +
+      '<div class="challenge-info">' +
+      '<div class="challenge-name"><span class="icon">' + c.icon + '</span>' + c.name + '</div>' +
+      '<div class="challenge-desc">' + c.desc + '</div>' +
+      '<div class="challenge-goal">🎯 ' + (typeof c.goal === 'number' ? formatNum(c.goal) + ' points' : c.goal) + '</div>' +
+      '<div class="challenge-bonus">🏆 Permanent: +' + c.bonus + '% global bonus</div></div>' +
+      '<button class="challenge-btn' + (done ? ' done' : (isActive ? ' active' : '')) + '" ' +
+      (done ? '' : 'onclick="doChallenge(\'' + c.id + '\')"') + '>' +
+      (done ? '✅ Done' : (isActive ? 'In Progress' : 'Start')) + '</button></div>';
+  }
+  area.innerHTML = html;
+}
+
+function updateBurstTab() {
+  const transArea = document.getElementById('transcend-area');
+  if (!transArea) return;
+  if (state.bursts >= 100) {
+    transArea.style.display = '';
+    document.getElementById('transcend-level').textContent = state.transcendLevel || 0;
+    document.getElementById('transcend-mult').textContent = getGlobalMult().toFixed(2) + 'x';
+    const tBtn = document.getElementById('transcend-btn');
+    tBtn.disabled = false;
+    document.getElementById('transcend-preview').innerHTML =
+      '<div class="burst-stat" style="color:#aa88ff;font-size:0.8rem">Current mult: ×' + state.burstMult.toFixed(2) + ' → Next: ×1.00 + ✨</div>';
+  } else {
+    transArea.style.display = 'none';
+  }
+}
+
+/* ═══════════════════════════ Transcendence ═══════════════════════════ */
+
+function canTranscend() { return state.bursts >= 100; }
+
+function doTranscend() {
+  if (!canTranscend()) return;
+  const gain = state.burstMult;
+  state.transcendLevel = (state.transcendLevel || 0) + 1;
+  state.transcendMult = 1 + state.transcendLevel * 1; // +100% per transcend
+  state.points = 0;
+  state.totalPoints = 0;
+  state.totalClicks = 0;
+  state.bursts = 0;
+  state.burstMult = 1;
+  state.gens = {};
+  state.upgrades = {};
+  state.clickBought = 0;
+  state.effBought = 0;
+  state.burstBought = 0;
+  state.autoBought = 0;
+  state.combo = 0;
+  state.autoAccum = 0;
+  state.perks = {};
+
+  playSound('transcend');
+  addLog('burst', '✨ Transcendence #' + state.transcendLevel + ' — ×' + state.transcendMult.toFixed(2) + ' global multiplier');
+  showToast('✨', 'Transcendence ' + state.transcendLevel, '×' + state.transcendMult.toFixed(2) + ' everything');
+  checkAchievements();
+  updateUI();
+  saveState();
+}
+
+function getGlobalMult() {
+  return state.transcendMult || 1;
+}
+
+/* ═══════════════════════════ Challenge Mode ═══════════════════════════ */
+
+const CHALLENGES = [
+  { id:'ch_click',  name:'Clickomania',     desc:'Only clicks earn points (no generator income)', icon:'👆', bonus:2, goal:1e6  },
+  { id:'ch_poor',   name:'Poverty',         desc:'All costs are 10x higher',                    icon:'💸', bonus:3, goal:5e5  },
+  { id:'ch_speed',  name:'Speed Run',       desc:'Generator income decays 50% per tier',        icon:'⏱️', bonus:4, goal:1e6  },
+  { id:'ch_ascend', name:'Ascension Rush',  desc:'Must ascend within 60 seconds or lose',       icon:'🌀', bonus:5, goal:'ascend within 60s' },
+  { id:'ch_perk',   name:'Perkless',        desc:'No perks available this run',                  icon:'💎', bonus:10, goal:1e5 },
+  { id:'ch_noup',   name:'No Upgrades',     desc:'Cannot buy any upgrades — generators only',   icon:'🚫', bonus:6, goal:2e5 },
+  { id:'ch_fade',   name:'Fading Memory',   desc:'Every 10s all generators lose 1 level',       icon:'🌫️', bonus:6, goal:5e5 },
+];
+
+function doChallenge(id) {
+  const c = CHALLENGES.find(x => x.id === id);
+  if (!c || state.challenges[id]) return;
+  if (state.challengeActive) { showToast('⚠️', 'Already in a challenge', 'Finish it first'); return; }
+  if (state.bursts < 10) { showToast('⚠️', 'Need 10 ascensions', 'To unlock challenges'); return; }
+
+  state.challengeActive = id;
+  state.challengeData = { startTime: Date.now(), startPoints: state.totalPoints };
+  state.points = 0;
+  state.totalPoints = 0;
+  state.totalClicks = 0;
+  state.gens = {};
+  state.upgrades = {};
+  state.clickBought = 0;
+  state.effBought = 0;
+  state.burstBought = 0;
+  state.autoBought = 0;
+  state.combo = 0;
+  state.autoAccum = 0;
+  state.bursts = 0;
+  state.burstMult = 1;
+
+  addLog('milestone', '🏁 Started challenge: ' + c.name + ' — ' + c.desc);
+  showToast('🏁', 'Challenge: ' + c.name, c.desc);
+  updateUI();
+  saveState();
+}
+
+function completeChallenge() {
+  if (!state.challengeActive) return;
+  const c = CHALLENGES.find(x => x.id === state.challengeActive);
+  if (!c) return;
+  state.challenges[state.challengeActive] = true;
+  playSound('challenge');
+  addLog('milestone', '🏆 Challenge complete: ' + c.name + ' — +' + c.bonus + '% permanent bonus');
+  showToast('🏆', 'Challenge Complete!', '+' + c.bonus + '% global bonus');
+  state.challengeActive = null;
+  state.challengeData = {};
+  // Reset state
+  state.points = 0;
+  state.totalPoints = 0;
+  state.totalClicks = 0;
+  state.gens = {};
+  state.upgrades = {};
+  state.clickBought = 0;
+  state.effBought = 0;
+  state.burstBought = 0;
+  state.autoBought = 0;
+  state.combo = 0;
+  state.autoAccum = 0;
+  state.bursts = 0;
+  state.burstMult = 1;
+  checkAchievements();
+  updateUI();
+  saveState();
+}
+
+function getChallengeMult() {
+  let m = 1;
+  for (const c of CHALLENGES) {
+    if (state.challenges[c.id]) m += c.bonus / 100;
+  }
+  return m;
+}
+
+function abandonChallenge() {
+  if (!state.challengeActive) return;
+  if (!confirm('Abandon current challenge? Progress will be lost.')) return;
+  addLog('milestone', '🚩 Challenge abandoned: ' + state.challengeActive);
+  state.challengeActive = null;
+  state.challengeData = {};
+  state.points = 0;
+  state.totalPoints = 0;
+  state.totalClicks = 0;
+  state.gens = {};
+  state.upgrades = {};
+  state.clickBought = 0;
+  state.effBought = 0;
+  state.burstBought = 0;
+  state.autoBought = 0;
+  state.combo = 0;
+  state.autoAccum = 0;
+  state.bursts = 0;
+  state.burstMult = 1;
+  updateUI();
+  saveState();
+}
+
+function buyUpgrade(id) {
+  if (state.challengeActive === 'ch_noup') return;
+  const u = UPGRADES.find(x => x.id === id);
+  if (!u || state.upgrades[id] || !canAfford(u.cost)) return;
+  state.points -= u.cost;
+  state.upgrades[id] = true;
+  if (u.type === 'click') state.clickBought = (state.clickBought || 0) + 1;
+  if (u.type === 'eff') state.effBought = (state.effBought || 0) + 1;
+  if (u.type === 'burst') state.burstBought = (state.burstBought || 0) + 1;
+  if (u.type === 'auto') state.autoBought = (state.autoBought || 0) + 1;
+  playSound('upgrade');
+  addLog('upgrade', '⬆️ ' + u.name + ' — ' + u.desc);
+  checkAchievements();
+  updateUI();
+  saveState();
+}
+
+function calcBurstGain() {
+  const p = state.totalPoints;
+  if (p < 10000) return 0;
+  const raw = Math.floor(Math.sqrt(p / 1000));
+  return Math.max(1, Math.floor(raw * getBurstPowerUpg()));
+}
+
+function canBurst() { return state.totalPoints >= 10000 && state.bursts < 100; }
+
+function doBurst() {
+  if (!canBurst()) return;
+  const gain = calcBurstGain();
+  if (gain <= 0) return;
+
+  state.burstMult += gain / 100;
+  state.bursts++;
+  state.points = getStartPoints();
+  state.gens = {};
+  state.upgrades = {};
+  state.totalClicks = 0;
+  state.clickBought = 0;
+  state.effBought = 0;
+  state.burstBought = 0;
+  state.autoBought = 0;
+  state.combo = 0;
+  state.autoAccum = 0;
+
+  playSound('burst');
+  addLog('burst', '🌀 Ascension #' + state.bursts + ' — ×' + state.burstMult.toFixed(2) + ' multiplier');
+  showToast('🌀', 'Ascension ' + state.bursts, '×' + state.burstMult.toFixed(2) + ' multiplier');
+  // Ascension Rush challenge: completing an ascension completes the challenge
+  if (state.challengeActive === 'ch_ascend') {
+    completeChallenge();
+    return; // completeChallenge already resets state
+  }
+  checkAchievements();
+  renderPerks();
+  updateUI();
+  saveState();
+}
+
+/* ═══════════════════════════ Perk System ═══════════════════════════ */
+
+function getPerkCost(perk) {
+  const lvl = state.perks[perk.id] || 0;
+  return Math.floor(perk.baseCost * Math.pow(perk.scale, lvl));
+}
+
+function buyPerk(id) {
+  const p = PERKS.find(x => x.id === id);
+  if (!p) return;
+  const lvl = state.perks[id] || 0;
+  if (lvl >= p.maxLevel) return;
+  const cost = getPerkCost(p);
+  if (!canAfford(cost)) return;
+  state.points -= cost;
+  state.perks[id] = lvl + 1;
+  playSound('buy');
+  addLog('upgrade', '💎 ' + p.name + ' lv.' + (lvl + 1) + ' — ' + p.desc);
+  checkAchievements();
+  renderPerks();
+  updateUI();
+  saveState();
+}
+
+function renderPerks() {
+  const area = document.getElementById('perks-area');
+  if (!area) return;
+  if (state.bursts === 0) {
+    area.innerHTML = '<div class="locked-msg">🌀 Ascend at least once to unlock permanent perks!</div>';
+    return;
+  }
+  if (state.challengeActive === 'ch_perk') {
+    area.innerHTML = '<div class="locked-msg">💎 Perks are disabled during the Perkless challenge!</div>';
+    return;
+  }
+  area.innerHTML = PERKS.map(p => {
+    const lvl = state.perks[p.id] || 0;
+    const cost = getPerkCost(p);
+    const can = canAfford(cost);
+    const maxed = lvl >= p.maxLevel;
+    return '<div class="perk-item">' +
+      '<div class="perk-info">' +
+      '<div class="perk-name">' + p.icon + ' ' + p.name + ' <span class="plevel">[' + lvl + '/' + p.maxLevel + ']</span></div>' +
+      '<div class="perk-effect">' + p.desc + '</div>' +
+      '<div class="perk-cost">' + (maxed ? 'MAXED' : formatNum(cost) + ' pts') + '</div></div>' +
+      '<button class="perk-btn' + (maxed ? ' owned' : (can ? '' : ' unaffordable')) + '"' +
+      (maxed ? '' : ' onclick="buyPerk(\'' + p.id + '\')"') + '>' +
+      (maxed ? 'Maxed' : 'Buy') + '</button></div>';
+  }).join('');
+}
+
+/* ═══════════════════════════ Achievements ═══════════════════════════ */
+
+function checkAchievements() {
+  let changed = false;
+  for (const a of ACHIEVEMENTS) {
+    if (!state.achievements[a.id] && a.check(state)) {
+      state.achievements[a.id] = Date.now();
+      changed = true;
+      addLog('achieve', '🏆 ' + a.title + ' — ' + a.desc);
+      showToast(a.icon, a.title, a.desc);
+    }
+  }
+  if (changed) { playSound('achieve'); saveState(); renderAchievements(); checkVictory(); }
+}
+
+function checkVictory() {
+  // Milestone messages at key thresholds
+  const milestones = [1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15];
+  for (const m of milestones) {
+    if (state.totalPoints >= m && !state['_milestone_' + m]) {
+      state['_milestone_' + m] = true;
+      if (m === 1e15) {
+        state.victoryShown = true;
+        document.getElementById('v-total').textContent = formatNum(state.totalPoints);
+        document.getElementById('v-bursts').textContent = state.bursts;
+        document.getElementById('v-gens').textContent = getTotalGens();
+        document.getElementById('v-time').textContent = formatTime(state.playTime);
+        document.getElementById('victory-panel').innerHTML =
+          '<h2>👑 Victory!</h2><div class="sub">You reached 1,000,000,000,000,000 points</div>' +
+          '<div class="vstat">Total points: <b id="v-total">' + formatNum(state.totalPoints) + '</b></div>' +
+          '<div class="vstat">Ascensions: <b id="v-bursts">' + state.bursts + '</b></div>' +
+          '<div class="vstat">Generators built: <b id="v-gens">' + getTotalGens() + '</b></div>' +
+          '<div class="vstat">Time played: <b id="v-time">' + formatTime(state.playTime) + '</b></div>' +
+          '<div class="vstat" style="margin-top:10px;font-size:0.65rem;opacity:0.4">But the numbers keep going...</div>' +
+          '<button id="victory-continue" style="' +
+          'background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.25);' +
+          'color:#ffd700;padding:8px 24px;border-radius:10px;cursor:pointer;font-size:0.85rem;' +
+          'font-family:inherit;font-weight:bold;margin-top:14px;transition:0.15s;">Continue Playing</button>';
+        document.getElementById('victory-overlay').classList.add('show');
+        document.getElementById('victory-continue').addEventListener('click', () => {
+          document.getElementById('victory-overlay').classList.remove('show');
+        });
+        addLog('milestone', '👑 VICTORY! Reached ' + formatNum(1e15) + ' total points!');
+      } else {
+        addLog('milestone', '🌟 Reached ' + formatNum(m) + ' total points!');
+      }
+      saveState();
+    }
+  }
+}
+
+/* ═══════════════════════════ Toast ═══════════════════════════ */
+
+function showToast(icon, title, desc) {
+  const el = document.getElementById('toast');
+  el.innerHTML = '<span class="icon">' + icon + '</span><div class="title">' + title + '</div><div class="desc">' + desc + '</div>';
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 1500);
+}
+
+/* ═══════════════════════════ UI ─── Rendering ═══════════════════════════ */
+
+function buildTabHTML() {
+  let out = '';
+  for (const g of GENERATORS) {
+    const count = getGenCount(g.id);
+    const cost = getGenCost(g.id);
+    const ratePer = (g.base * getEffMult() * state.burstMult).toFixed(1);
+    const can = canAfford(cost);
+    out += '<div class="gen-item">' +
+      '<div class="gen-info"><div class="gen-name">' + g.emoji + ' ' + g.name + ' <span class="count" id="gc-' + g.id + '">[' + count + ']</span></div>' +
+      '<div class="gen-rate">' + ratePer + ' pts/s each</div></div>' +
+      '<div class="gen-action"><div class="gen-cost" id="gcost-' + g.id + '">' + formatNum(cost) + ' pts</div>' +
+      '<button class="gen-btn' + (can ? '' : ' unaffordable') + '" onclick="buyGen(\'' + g.id + '\')">Buy</button></div></div>';
+  }
+
+  let upgOut = '';
+  for (const u of UPGRADES) {
+    const owned = state.upgrades[u.id];
+    const can = canAfford(u.cost);
+    upgOut += '<div class="upg-item">' +
+      '<div class="upg-info"><div class="upg-name">' + (owned ? '✅' : '⬆️') + ' ' + u.name + '</div>' +
+      '<div class="upg-desc">' + u.desc + ' — ' + formatNum(u.cost) + ' pts</div></div>' +
+      '<button class="upg-btn' + (owned ? ' owned' : (can ? '' : ' unaffordable')) + '" data-upg="' + u.id + '" onclick="' + (owned ? '' : 'buyUpgrade(\'' + u.id + '\')') + '"' + (owned ? '' : '') + '>' +
+      (owned ? 'Owned' : 'Buy') + '</button></div>';
+  }
+
+  return { genHTML: out, upgHTML: upgOut };
+}
+
+function updateUI() {
+  const pps = getPPS();
+
+  document.getElementById('points-display').textContent = formatNum(state.points);
+  document.getElementById('pps-display').textContent = formatNum(pps);
+  document.getElementById('total-display').textContent = formatNum(state.totalPoints);
+  document.getElementById('burst-count-stat').textContent = state.bursts;
+  document.getElementById('transcend-stat').textContent = state.transcendLevel || 0;
+  document.getElementById('click-pts').textContent = formatNum(state.points);
+  const combo = state.combo || 0;
+  const comboMult = 1 + combo * 0.1;
+  document.getElementById('click-value').textContent = '+' + getClickPower() + ' per click' + (combo > 0 ? ' ×' + comboMult.toFixed(1) : '');
+
+  // Progress
+  const target = Math.max(1e6, Math.pow(10, Math.floor(Math.log10(Math.max(state.totalPoints, 1)) + 1)));
+  const pct = Math.min(100, state.totalPoints / target * 100);
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = formatNum(state.totalPoints) + ' / ' + formatNum(target);
+
+  // Challenge progress bar
+  if (state.challengeActive) {
+    const c = CHALLENGES.find(x => x.id === state.challengeActive);
+    const fillEl = document.querySelector('#challenge-active-banner .challenge-progress-fill');
+    const goalEl = document.querySelector('#challenge-active-banner .challenge-goal');
+    if (fillEl && c && typeof c.goal === 'number') {
+      const p = Math.min(100, state.totalPoints / c.goal * 100);
+      fillEl.style.width = p + '%';
+    }
+    if (goalEl && c) {
+      const label = typeof c.goal === 'number' ? formatNum(c.goal) + ' pts' : c.goal;
+      goalEl.textContent = 'Goal: ' + label + (state.totalPoints > 0 ? ' (' + formatNum(state.totalPoints) + ')' : '');
+    }
+  }
+
+  // Combo display
+  const comboEl = document.getElementById('combo-display');
+  if (combo > 0) {
+    comboEl.textContent = '🔥 ×' + comboMult.toFixed(1) + ' combo (' + combo + 'x)';
+    comboEl.className = combo >= 10 ? 'active combo-10' : combo >= 5 ? 'active combo-5' : 'active';
+  } else {
+    comboEl.textContent = '';
+    comboEl.className = '';
+  }
+
+  // Buy qty button active state
+  document.querySelectorAll('#buy-qty-row .qty-btn, #buy-qty-row-upg .qty-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.qty == state.buyQty || (b.dataset.qty === 'max' && state.buyQty === 'max'));
+  });
+
+  // Burst
+  const gain = calcBurstGain();
+  const btn = document.getElementById('burst-btn');
+  if (gain > 0 && state.bursts < 100) {
+    btn.disabled = false;
+    document.getElementById('burst-preview').innerHTML =
+      '<div class="burst-stat" style="color:#ffd700;font-size:0.8rem">Next: +' + gain + '% boost</div>';
+  } else {
+    btn.disabled = true;
+    document.getElementById('burst-preview').innerHTML =
+      '<div class="burst-stat" style="opacity:0.3;font-size:0.7rem">' +
+      (state.bursts >= 100 ? 'Maximum ascensions reached' : 'Need 10,000 total points') + '</div>';
+  }
+  document.getElementById('burst-mult').textContent = state.burstMult.toFixed(2) + 'x';
+  document.getElementById('burst-count').textContent = state.bursts;
+
+  // Update generator costs and counts in place (don't rebuild full HTML — keeps onclick handlers alive)
+  for (const g of GENERATORS) {
+    const count = getGenCount(g.id);
+    const cost = getGenCost(g.id);
+    const can = canAfford(cost);
+    const costEl = document.getElementById('gcost-' + g.id);
+    const countEl = document.getElementById('gc-' + g.id);
+    if (costEl) costEl.textContent = formatNum(cost) + ' pts';
+    if (countEl) countEl.textContent = '[' + count + ']';
+    // Update button affordance class
+    const btnEl = document.querySelector('#pane-generate .gen-btn[onclick*="' + g.id + '"]');
+    if (btnEl) btnEl.className = 'gen-btn' + (can ? '' : ' unaffordable');
+  }
+  // Update upgrade button affordance in place (onclick is baked into HTML, just update class + text)
+  for (const u of UPGRADES) {
+    const owned = state.upgrades[u.id];
+    const can = canAfford(u.cost);
+    const btnEl = document.querySelector('#pane-upgrades button[data-upg="' + u.id + '"]');
+    if (btnEl) {
+      btnEl.className = 'upg-btn' + (owned ? ' owned' : (can ? '' : ' unaffordable'));
+      btnEl.textContent = owned ? 'Owned' : 'Buy';
+      if (owned) {
+        btnEl.setAttribute('onclick', '');
+      } else {
+        btnEl.setAttribute('onclick', "buyUpgrade('" + u.id + "')");
+      }
+    }
+  }
+
+  renderStats();
+  updateBurstTab();
+  renderAchievements();
+  document.getElementById('save-status').textContent = '💾';
+}
+
+function renderStats() {
+  const area = document.getElementById('stats-area');
+  if (!area) return;
+  const eff = getEffMult();
+  const pps = getPPS();
+  // Per-generator PPS breakdown
+  let genBreak = '';
+  for (const g of GENERATORS) {
+    const c = getGenCount(g.id);
+    if (c > 0) {
+      const gPPS = g.base * c * eff * state.burstMult;
+      genBreak += '<div class="stat-row" style="padding:1px 0 1px 8px;font-size:0.55rem;opacity:0.4">' +
+        '<span class="slabel">' + g.emoji + ' ' + g.name + ' ×' + c + '</span>' +
+        '<span class="sval" style="font-size:0.55rem">' + formatNum(gPPS) + '/s</span></div>';
+    }
+  }
+  area.innerHTML =
+    '<div class="stat-row"><span class="slabel">Total Points</span><span class="sval">' + formatNum(state.totalPoints) + '</span></div>' +
+    '<div class="stat-row"><span class="slabel">Points/sec</span><span class="sval">' + formatNum(pps) + '</span></div>' +
+    genBreak +
+    '<div class="stat-row"><span class="slabel">Click Power</span><span class="sval">+' + getClickPower() + '</span></div>' +
+    '<div class="stat-row"><span class="slabel">Efficiency</span><span class="sval">×' + eff.toFixed(1) + '</span></div>' +
+    '<div class="stat-row"><span class="slabel">Burst Mult</span><span class="sval">×' + state.burstMult.toFixed(2) + '</span></div>' +
+    '<div class="stat-row"><span class="slabel">Global Mult</span><span class="sval">×' + getGlobalMult().toFixed(2) + '</span></div>' +
+    '<div class="stat-row"><span class="slabel">Challenge Mult</span><span class="sval">×' + getChallengeMult().toFixed(2) + '</span></div>' +
+    '<div class="stat-row"><span class="slabel">Auto Rate</span><span class="sval">' + getAutoRate().toFixed(1) + '/s</span></div>' +
+    '<div class="stat-row"><span class="slabel">Max Combo</span><span class="sval">' + state.maxCombo + 'x</span></div>' +
+    '<div class="stat-row"><span class="slabel">Clicks</span><span class="sval">' + state.totalClicks.toLocaleString() + '</span></div>' +
+    '<div class="stat-row"><span class="slabel">Generators</span><span class="sval">' + getTotalGens() + '</span></div>' +
+    '<div class="stat-row"><span class="slabel">Ascensions</span><span class="sval">' + state.bursts + '</span></div>' +
+    '<div class="stat-row"><span class="slabel">Transcend</span><span class="sval">' + (state.transcendLevel || 0) + '</span></div>' +
+    '<div class="stat-row"><span class="slabel">Challenges</span><span class="sval">' + Object.keys(state.challenges).length + '/' + CHALLENGES.length + '</span></div>' +
+    '<div class="stat-row"><span class="slabel">Upgrades</span><span class="sval">' + Object.keys(state.upgrades).length + '/' + UPGRADES.length + '</span></div>' +
+    '<div class="stat-row"><span class="slabel">Perks</span><span class="sval">' + Object.keys(state.perks).length + '/' + PERKS.length + '</span></div>' +
+    '<div class="stat-row"><span class="slabel">Achievements</span><span class="sval">' + Object.keys(state.achievements).length + '/' + ACHIEVEMENTS.length + '</span></div>' +
+    '<div class="stat-row"><span class="slabel">Play Time</span><span class="sval">' + formatTime(state.playTime) + '</span></div>' +
+    '<div class="stat-row"><span class="slabel">Auto-Buy</span><span class="sval">' + (state.autoBuy ? 'ON' : 'OFF') + '</span></div>';
+}
+
+function renderAchievements() {
+  document.getElementById('ach-grid').innerHTML = ACHIEVEMENTS.map(a =>
+    '<div class="ach-card' + (state.achievements[a.id] ? ' unlocked' : '') + '">' +
+    '<span class="icon">' + (state.achievements[a.id] ? a.icon : '🔒') + '</span>' +
+    '<div class="title">' + a.title + '</div>' +
+    '<div class="desc">' + a.desc + '</div></div>'
+  ).join('');
+}
+
+/* ═══════════════════════════ Tab Switching ═══════════════════════════ */
+
+function switchTab(tab) {
+  $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  $$('.tab-pane').forEach(p => p.classList.toggle('show', p.id === 'pane-' + tab));
+
+  const genPane = document.getElementById('pane-generate');
+  const upgPane = document.getElementById('pane-upgrades');
+  const perksPane = document.getElementById('pane-perks');
+
+  // Only build and set HTML once per tab switch (not every frame)
+  if (tab === 'generate' && genPane.querySelector('.gen-item') === null) {
+    const { genHTML } = buildTabHTML();
+    const autoWrap = genPane.querySelector('#auto-buy-wrap');
+    const qtyRow = genPane.querySelector('#buy-qty-row');
+  genPane.innerHTML = (autoWrap ? autoWrap.outerHTML : '') + (qtyRow ? qtyRow.outerHTML : '') + genHTML;
+
+  // Sync auto-buy checkbox (must be after innerHTML rebuild so element is fresh)
+  document.getElementById('auto-cbx').checked = state.autoBuy;
+  }
+  if (tab === 'upgrades') {
+    const needsRebuild = upgPane.querySelector('.upg-item') === null;
+    const isLocked = state.challengeActive === 'ch_noup';
+    const showingLock = upgPane.querySelector('.locked-msg') !== null;
+    if (needsRebuild || (isLocked && !showingLock) || (!isLocked && showingLock)) {
+      if (isLocked) {
+        upgPane.innerHTML = '<div class="locked-msg" style="padding:20px;text-align:center;opacity:0.4;font-size:0.7rem">🚫 Upgrades locked by No Upgrades challenge</div>';
+      } else {
+        const { upgHTML } = buildTabHTML();
+        const qtyRow = upgPane.querySelector('#buy-qty-row-upg');
+        upgPane.innerHTML = (qtyRow ? qtyRow.outerHTML : '') + upgHTML;
+      }
+    }
+  }
+  if (tab === 'perks') { renderPerks(); }
+  if (tab === 'burst') { updateBurstTab(); }
+  if (tab === 'challenge') { renderChallenges(); }
+  if (tab === 'stats') { renderStats(); renderAchievements(); }
+}
+
+/* ═══════════════════════════ Save / Load ═══════════════════════════ */
+
+function saveState() {
+  try {
+    const s = {
+      v: 2, lastTick: state.lastTick,
+      points: state.points, totalPoints: state.totalPoints, totalClicks: state.totalClicks,
+      bursts: state.bursts, burstMult: state.burstMult,
+      gens: state.gens, upgrades: state.upgrades, achievements: state.achievements,
+      playTime: state.playTime, victoryShown: state.victoryShown,
+      clickBought: state.clickBought, effBought: state.effBought, burstBought: state.burstBought,
+      autoBought: state.autoBought,
+      buyQty: state.buyQty, combo: state.combo, maxCombo: state.maxCombo,
+      autoAccum: state.autoAccum,
+      perks: state.perks,
+      autoBuy: state.autoBuy,
+      transcendLevel: state.transcendLevel,
+      transcendMult: state.transcendMult,
+      challenges: state.challenges,
+      challengeActive: state.challengeActive,
+      challengeData: state.challengeData,
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(s));
+    document.getElementById('save-status').textContent = '✓';
+  } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (!s || !s.v) return;
+    state.points = s.points || 0;
+    state.totalPoints = s.totalPoints || 0;
+    state.totalClicks = s.totalClicks || 0;
+    state.bursts = s.bursts || 0;
+    state.burstMult = s.burstMult || 1;
+    state.gens = s.gens || {};
+    state.upgrades = s.upgrades || {};
+    state.achievements = s.achievements || {};
+    state.playTime = s.playTime || 0;
+    state.victoryShown = s.victoryShown || false;
+    state.clickBought = s.clickBought || 0;
+    state.effBought = s.effBought || 0;
+    state.burstBought = s.burstBought || 0;
+    state.autoBought = s.autoBought || 0;
+    state.buyQty = s.buyQty !== undefined ? s.buyQty : 1;
+    state.combo = s.combo || 0;
+    state.maxCombo = s.maxCombo || 0;
+    state.autoAccum = s.autoAccum || 0;
+    state.perks = s.perks || {};
+    state.autoBuy = s.autoBuy || false;
+    state.transcendLevel = s.transcendLevel || 0;
+    state.transcendMult = s.transcendMult || 1;
+    state.challenges = s.challenges || {};
+    state.challengeActive = s.challengeActive || null;
+    state.challengeData = s.challengeData || {};
+
+    // Offline progress
+    if (s.lastTick) {
+      const elapsed = Date.now() - s.lastTick;
+      if (elapsed > 5000) {
+        const pps = getPPS();
+        const earned = Math.floor(pps * elapsed / 1000);
+        if (earned > 0) {
+          state.points += earned;
+          state.totalPoints += earned;
+          addLog('milestone', '💤 Welcome back! Earned ' + formatNum(earned) + ' pts while away');
+        }
+      }
+    }
+  } catch(e) {}
+}
+
+/* ═══════════════════════════ Reset ═══════════════════════════ */
+
+function doReset() {
+  if (confirm('Hard reset - wipe all progress, perks, and ascensions? This cannot be undone.')) {
+    localStorage.removeItem('incrementall_save');
+    location.reload();
+  }
+}
+
+/* ═══════════════════════════ Export / Import ═══════════════════════════ */
+
+function exportSave() {
+  const raw = localStorage.getItem(LS_KEY);
+  if (!raw) { alert('No save data to export.'); return; }
+  const b64 = btoa(unescape(encodeURIComponent(raw)));
+  navigator.clipboard.writeText(b64).then(() => {
+    showToast('💾', 'Save Exported', 'Copied to clipboard');
+  }).catch(() => {
+    // Fallback: prompt with the data
+    prompt('Copy this save data:', b64);
+  });
+}
+
+function importSave() {
+  const b64 = prompt('Paste save data:');
+  if (!b64) return;
+  try {
+    const raw = decodeURIComponent(escape(atob(b64)));
+    const s = JSON.parse(raw);
+    if (!s || !s.v) { alert('Invalid save data.'); return; }
+    localStorage.setItem(LS_KEY, raw);
+    showToast('💾', 'Save Imported', 'Reloading...');
+    setTimeout(() => location.reload(), 500);
+  } catch(e) {
+    alert('Could not import save. Make sure you copied the full string.');
+  }
+}
+
+/* ═══════════════════════════ Auto-Buy ═══════════════════════════ */
+
+function doAutoBuy() {
+  if (!state.autoBuy) return;
+  // Find the cheapest affordable generator
+  let best = null, bestCost = Infinity;
+  for (const g of GENERATORS) {
+    const cost = getGenCost(g.id);
+    if (state.points >= cost && cost < bestCost) {
+      best = g.id;
+      bestCost = cost;
+    }
+  }
+  if (best) {
+    // Buy 1
+    const cost = getGenCost(best);
+    state.points -= cost;
+    state.gens[best] = (state.gens[best] || 0) + 1;
+  }
+}
+
+/* ═══════════════════════════ Game Loop ═══════════════════════════ */
+
+let _lastTick = Date.now();
+function tick(timestamp) {
+  const now = Date.now();
+  const dt = Math.min(now - _lastTick, 1000);
+  _lastTick = now;
+  state.lastTick = now;
+
+  if (dt > 0) {
+    const pps = getPPS();
+    const earned = pps * dt / 1000;
+    if (earned > 0) {
+      state.points += earned;
+      state.totalPoints += earned;
+    }
+    // Auto-clicks
+    const autoRate = getAutoRate();
+    if (autoRate > 0) {
+      state.autoAccum = (state.autoAccum || 0) + autoRate * dt / 1000;
+      while (state.autoAccum >= 1) {
+        state.autoAccum -= 1;
+        const power = getClickPower();
+        state.points += power;
+        state.totalPoints += power;
+      }
+    }
+    state.playTime += dt;
+    // Auto-buy
+    doAutoBuy();
+  }
+
+  updateUI();
+  checkAchievements();
+  checkVictory();
+  if (state.challengeActive) checkChallengeProgress();
+  requestAnimationFrame(tick);
+}
+
+function checkChallengeProgress() {
+  if (!state.challengeActive) return;
+  const c = CHALLENGES.find(x => x.id === state.challengeActive);
+  if (!c) return;
+  // Ascension Rush: auto-fail if >60 seconds without ascending
+  if (state.challengeActive === 'ch_ascend') {
+    const elapsed = Date.now() - (state.challengeData.startTime || Date.now());
+    if (elapsed > 60000) {
+      addLog('milestone', '⏰ Challenge failed: Ascension Rush — ran out of time');
+      showToast('⏰', 'Challenge Failed', 'Time ran out');
+      state.challengeActive = null;
+      state.challengeData = {};
+      updateUI();
+      saveState();
+      return;
+    }
+  }
+  // Fading Memory: decay gens every 10s
+  if (state.challengeActive === 'ch_fade') {
+    const lastDecay = state.challengeData.lastDecay || Date.now();
+    const elapsed = Date.now() - lastDecay;
+    if (elapsed >= 10000) {
+      const intervals = Math.floor(elapsed / 10000);
+      state.challengeData.lastDecay = lastDecay + intervals * 10000;
+      for (const g of GENERATORS) {
+        const cur = state.gens[g.id] || 0;
+        if (cur > 0) {
+          state.gens[g.id] = Math.max(0, cur - intervals);
+        }
+      }
+      addLog('milestone', '🌫️ Fading Memory: generators decayed by ' + intervals);
+      updateUI();
+    }
+  }
+  // Check completion: reach goal
+  if (typeof c.goal === 'number' && state.totalPoints >= c.goal) {
+    completeChallenge();
+  }
+}
+
+/* ═══════════════════════════ Init ═══════════════════════════ */
+
+function init() {
+  loadState();
+
+  addLog('milestone', '🤖 IncrementALL initialized. Click to start!');
+  addLog('milestone', '💡 Tip: Buy generators, then upgrades, then ascend!');
+  if (state.bursts > 0) addLog('milestone', '🌀 Welcome back! You have ' + state.bursts + ' ascension' + (state.bursts > 1 ? 's' : '') + ' with ×' + state.burstMult.toFixed(2) + ' multiplier');
+
+  // Build initial tab content (before updateUI so onclick handlers are stable)
+  const genPane = document.getElementById('pane-generate');
+  const { genHTML } = buildTabHTML();
+  // Preserve auto-buy-wrap and buy-qty-row, insert gen items after them
+  const autoWrap = genPane.querySelector('#auto-buy-wrap');
+  const qtyRow = genPane.querySelector('#buy-qty-row');
+  genPane.innerHTML = (autoWrap ? autoWrap.outerHTML : '') + (qtyRow ? qtyRow.outerHTML : '') + genHTML;
+
+  updateUI();
+  renderAchievements();
+
+  // Click area
+  document.getElementById('click-area').addEventListener('click', doClick);
+
+  // Tab navigation
+  $$('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  // Buy quantity buttons
+  document.querySelectorAll('#buy-qty-row .qty-btn, #buy-qty-row-upg .qty-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.buyQty = btn.dataset.qty === 'max' ? 'max' : parseInt(btn.dataset.qty);
+      updateUI();
+    });
+  });
+
+  // Generator and upgrade buttons use inline onclick handlers (in buildTabHTML)
+  // — no event delegation needed, always works regardless of DOM updates
+
+  // Burst
+  document.getElementById('burst-btn').addEventListener('click', doBurst);
+
+  // Transcend
+  document.getElementById('transcend-btn').addEventListener('click', doTranscend);
+
+  // Reset
+  document.getElementById('reset-btn').addEventListener('click', doReset);
+
+  // Export / Import
+  document.getElementById('export-btn').addEventListener('click', exportSave);
+  document.getElementById('import-btn').addEventListener('click', importSave);
+
+  // Auto-buy
+  const cbx = document.getElementById('auto-cbx');
+  cbx.addEventListener('change', () => { state.autoBuy = cbx.checked; });
+
+  // Victory continue
+  document.getElementById('victory-continue').addEventListener('click', () => {
+    document.getElementById('victory-overlay').classList.remove('show');
+  });
+
+  // Keyboard
+  document.addEventListener('keydown', e => {
+    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+    if (e.key === ' ') { e.preventDefault(); doClick(e); return; }
+    // Number keys for tabs
+    const tabMap = { '1':'generate','2':'upgrades','3':'perks','4':'burst','5':'stats','6':'challenge' };
+    if (e.key in tabMap) { e.preventDefault(); switchTab(tabMap[e.key]); return; }
+    if (e.key === 'b' || e.key === 'B') { e.preventDefault(); doBurst(); return; }
+    if (e.key === 't' || e.key === 'T') { e.preventDefault(); doTranscend(); return; }
+    if (e.key === 'a' || e.key === 'A') { e.preventDefault(); state.autoBuy = !state.autoBuy; document.getElementById('auto-cbx').checked = state.autoBuy; updateUI(); return; }
+    if (e.key === 'e' || e.key === 'E') { e.preventDefault(); exportSave(); return; }
+    if (e.key === 'r' || e.key === 'R') { e.preventDefault(); doReset(); return; }
+  });
+
+  // Auto-save
+  setInterval(saveState, 15000);
+
+  // Start game loop
+  _lastTick = Date.now();
+  requestAnimationFrame(tick);
+}
+
+init();
+</script>
+</body>
+</html>

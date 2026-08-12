@@ -1,0 +1,9 @@
+{
+  "id": "prompter",
+  "title": "Prompter",
+  "emoji": "🤖",
+  "description": "Prompt an AI to build a game, squash bugs before they corrupt the code!",
+  "controls": "Type prompts describing game features, click bugs to squash them",
+  "color": "#00cc88",
+  "bgColor": "#002211"
+}

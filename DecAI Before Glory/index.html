@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DecAI Before Glory</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #000;
+  color: #00ff40;
+  font-family: 'Courier New', monospace;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  cursor: default;
+}
+#game {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#terminal {
+  width: min(90vw, 700px);
+  height: min(80vh, 550px);
+  background: #0a0a0a;
+  border: 2px solid #00ff40;
+  border-radius: 6px;
+  padding: 24px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 30px rgba(0,255,64,0.08), inset 0 0 30px rgba(0,255,64,0.03);
+}
+#screen {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #00ff40 transparent;
+  padding-right: 8px;
+  position: relative;
+}
+#screen::-webkit-scrollbar { width: 4px; }
+#screen::-webkit-scrollbar-track { background: transparent; }
+#screen::-webkit-scrollbar-thumb { background: #00ff40; border-radius: 2px; }
+#choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  min-height: 60px;
+}
+.choice-btn {
+  background: transparent;
+  border: 1px solid #00ff40;
+  color: #fff;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  padding: 10px 16px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+  opacity: 0;
+  animation: fadeIn 0.3s forwards;
+}
+.choice-btn:hover { background: #00ff40; color: #000; }
+.choice-btn:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
+@keyframes fadeIn { to { opacity: 1; } }
+.msg {
+  margin-bottom: 12px;
+  line-height: 1.5;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.msg.decai { color: #00ff40; }
+.msg.system { color: #666; font-size: 0.75rem; }
+.msg.player { color: #fff; }
+.msg.win { color: #fff; text-shadow: 0 0 20px #00ff40; font-weight: bold; }
+.msg.lose { color: #ff3333; }
+.msg.shake { animation: shake 0.1s infinite; }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+.cursor {
+  display: inline-block;
+  width: 8px;
+  height: 16px;
+  background: #00ff40;
+  animation: blink 0.8s step-end infinite;
+  vertical-align: middle;
+  margin-left: 2px;
+}
+.scanlines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,64,0.015) 2px, rgba(0,255,64,0.015) 4px);
+  pointer-events: none;
+  border-radius: 4px;
+  z-index: 10;
+}
+#title-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #00ff40;
+  font-size: 0.7rem;
+  color: #00ff40;
+  flex-shrink: 0;
+}
+#title-bar .blink { animation: blink 1.2s step-end infinite; }
+
+/* ─── Minigame ─── */
+#minigame {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 20px 0;
+}
+#minigame.active { display: flex; }
+#mg-track {
+  width: 100%;
+  height: 40px;
+  background: #0a0a0a;
+  border: 1px solid #00ff40;
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+#mg-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,255,64,0.15);
+  border-left: 1px solid rgba(0,255,64,0.4);
+  border-right: 1px solid rgba(0,255,64,0.4);
+}
+#mg-indicator {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 6px;
+  background: #fff;
+  border-radius: 2px;
+  box-shadow: 0 0 10px rgba(255,255,255,0.5);
+  left: 0;
+  transition: none;
+}
+#mg-status {
+  font-size: 0.8rem;
+  color: #888;
+  text-align: center;
+}
+#mg-score {
+  font-size: 0.7rem;
+  color: #555;
+}
+.mg-click-msg {
+  font-size: 0.7rem;
+  color: #00ff40;
+  animation: fadeIn 0.3s forwards;
+}
+</style>
+</head>
+<body>
+<div id="game">
+  <div id="terminal">
+    <div class="scanlines"></div>
+    <div id="title-bar">
+      <span>DECAI_v3.12 ◆ INTERACTIVE_SESSION</span>
+      <span class="blink">● ONLINE</span>
+    </div>
+    <div id="screen"></div>
+    <div id="choices"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const screen = document.getElementById('screen');
+  const choicesEl = document.getElementById('choices');
+
+  let state = 'intro';
+  let mgCount = 0;
+  let mgSuccesses = 0;
+  let mgActive = false;
+  let mgAnimId = null;
+  let typingTimer = null;
+  let blocked = false;
+  let audioCtx = null;
+  let lastTick = 0;
+  let mouseDown = false;
+
+  document.addEventListener('mousedown', () => mouseDown = true);
+  document.addEventListener('mouseup', () => mouseDown = false);
+
+  function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function playTone(freq, dur, type, vol) {
+    try {
+      initAudio();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type || 'square';
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      gain.gain.setValueAtTime(vol || 0.06, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + dur);
+    } catch(e) {}
+  }
+
+  function sfxBoot() {
+    playTone(262, 0.12, 'square', 0.05);
+    setTimeout(() => playTone(330, 0.12, 'square', 0.05), 120);
+    setTimeout(() => playTone(392, 0.12, 'square', 0.05), 240);
+    setTimeout(() => playTone(523, 0.2, 'square', 0.05), 360);
+  }
+
+  function sfxType() {
+    playTone(800 + Math.random() * 400, 0.03, 'square', 0.015);
+  }
+
+  function sfxChoice() {
+    playTone(660, 0.06, 'sine', 0.04);
+    setTimeout(() => playTone(880, 0.08, 'sine', 0.04), 80);
+  }
+
+  function sfxSelect() {
+    playTone(440, 0.05, 'square', 0.04);
+  }
+
+  function sfxLaugh() {
+    for (let i = 0; i < 3; i++) {
+      setTimeout(() => {
+        playTone(200 + Math.random() * 400, 0.08, 'sawtooth', 0.04);
+        playTone(100 + Math.random() * 200, 0.1, 'square', 0.03);
+      }, i * 80);
+    }
+  }
+
+  function sfxMgTick() {
+    const now = Date.now();
+    if (now - lastTick < 50) return;
+    lastTick = now;
+    playTone(500 + Math.random() * 300, 0.02, 'square', 0.008);
+  }
+
+  function sfxMgSuccess() {
+    playTone(523, 0.1, 'sine', 0.06);
+    setTimeout(() => playTone(659, 0.15, 'sine', 0.06), 100);
+  }
+
+  function sfxMgFail() {
+    playTone(200, 0.15, 'sawtooth', 0.08);
+    setTimeout(() => playTone(150, 0.2, 'sawtooth', 0.06), 150);
+  }
+
+  function sfxWin() {
+    playTone(523, 0.1, 'sine', 0.05);
+    setTimeout(() => playTone(659, 0.1, 'sine', 0.05), 120);
+    setTimeout(() => playTone(784, 0.1, 'sine', 0.05), 240);
+    setTimeout(() => playTone(1047, 0.25, 'sine', 0.06), 360);
+  }
+
+  function sfxLose() {
+    playTone(400, 0.15, 'sawtooth', 0.06);
+    setTimeout(() => playTone(300, 0.2, 'sawtooth', 0.06), 200);
+    setTimeout(() => playTone(200, 0.3, 'sawtooth', 0.05), 400);
+  }
+
+  function sfxStatic() {
+    try {
+      initAudio();
+      const bufferSize = audioCtx.sampleRate * 0.15;
+      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) { data[i] = (Math.random() * 2 - 1) * 0.06; }
+      const source = audioCtx.createBufferSource();
+      source.buffer = buffer;
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+      source.connect(gain);
+      gain.connect(audioCtx.destination);
+      source.start();
+    } catch(e) {}
+  }
+
+  function scrollBottom() {
+    requestAnimationFrame(() => { screen.scrollTop = screen.scrollHeight; });
+  }
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  function addMsg(text, cls, noCursor) {
+    const div = document.createElement('div');
+    div.className = 'msg ' + (cls || 'decai');
+    div.textContent = text;
+    screen.appendChild(div);
+    if (!noCursor) {
+      const cursor = document.createElement('span');
+      cursor.className = 'cursor';
+      screen.appendChild(cursor);
+    }
+    scrollBottom();
+  }
+
+  function removeCursor() {
+    const c = screen.querySelector('.cursor');
+    if (c) c.remove();
+  }
+
+  async function typeText(text, cls) {
+    removeCursor();
+    const div = document.createElement('div');
+    div.className = 'msg ' + (cls || 'decai');
+    screen.appendChild(div);
+    scrollBottom();
+    for (let i = 0; i < text.length; i++) {
+      div.textContent += text[i];
+      scrollBottom();
+      if (text[i] !== ' ') sfxType();
+      await sleep(mouseDown ? 3 : 20 + Math.random() * 20);
+    }
+  }
+
+  function showChoices(opts) {
+    sfxChoice();
+    choicesEl.innerHTML = '';
+    opts.forEach((opt, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'choice-btn';
+      btn.textContent = '> ' + opt.label;
+      btn.style.animationDelay = (i * 0.12) + 's';
+      btn.addEventListener('click', () => {
+        if (blocked) return;
+        sfxSelect();
+        blocked = true;
+        choicesEl.innerHTML = '';
+        opt.action();
+      });
+      choicesEl.appendChild(btn);
+    });
+  }
+
+  function showMsg(text, cls) {
+    removeCursor();
+    addMsg(text, cls, true);
+  }
+
+  async function laugh(times) {
+    sfxLaugh();
+    for (let i = 0; i < times; i++) {
+      await typeText('HA', 'decai shake');
+      await sleep(100 + Math.random() * 200);
+    }
+    await typeText('HAHAHAHAHAHAHA— *crackle* —HAHAHAHA', 'decai shake');
+    await sleep(300);
+  }
+
+  /* ─── Endings ─── */
+  async function ending(title, text, cls) {
+    await sleep(400);
+    if (cls === 'win') sfxWin();
+    else if (cls === 'lose') sfxLose();
+    showMsg('━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'system');
+    await typeText('「' + title + '」', cls);
+    await sleep(300);
+    await typeText(text, cls);
+    showMsg('', 'system');
+    showChoices([{ label: 'Start over', action: () => { location.reload(); } }]);
+    blocked = false;
+  }
+
+  /* ─── Minigame ─── */
+  function startMinigame(onWin, onLose) {
+    mgCount = 0;
+    mgSuccesses = 0;
+    mgActive = true;
+    showMsg('━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'system');
+    typeText('DECAI: Prove your nerve. Click in the green zone. Three times.');
+    setTimeout(() => runMgRound(onWin, onLose), 1200);
+  }
+
+  function runMgRound(onWin, onLose) {
+    if (!mgActive) return;
+    mgCount++;
+    const speed = 4 + mgCount * 2;
+
+    screen.querySelectorAll('.mg-ui').forEach(el => el.remove());
+    const ui = document.createElement('div');
+    ui.className = 'mg-ui';
+    ui.innerHTML = `
+      <div id="minigame" class="active">
+        <div id="mg-track">
+          <div id="mg-zone"></div>
+          <div id="mg-indicator" style="left:0"></div>
+        </div>
+        <div id="mg-score">Round ${mgCount}/3</div>
+        <div id="mg-status">Click to stop the cursor in the green zone</div>
+      </div>
+    `;
+    screen.appendChild(ui);
+    scrollBottom();
+
+    const track = ui.querySelector('#mg-track');
+    const indicator = ui.querySelector('#mg-indicator');
+    const status = ui.querySelector('#mg-status');
+
+    let pos = 0;
+    let dir = 1;
+    let stopped = false;
+
+    function animate() {
+      if (stopped) return;
+      pos += speed * dir;
+      if (pos >= track.offsetWidth - 6) { dir = -1; }
+      if (pos <= 0) { dir = 1; }
+      indicator.style.left = pos + 'px';
+      sfxMgTick();
+      mgAnimId = requestAnimationFrame(animate);
+    }
+    animate();
+
+    function handleClick(e) {
+      if (stopped) return;
+      stopped = true;
+      if (mgAnimId) { cancelAnimationFrame(mgAnimId); mgAnimId = null; }
+
+      const rect = track.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const zoneCenter = track.offsetWidth / 2;
+      const zoneHalf = 30;
+      const indicatorCenter = pos + 3;
+
+      if (Math.abs(indicatorCenter - zoneCenter) < zoneHalf) {
+        mgSuccesses++;
+        sfxMgSuccess();
+        status.textContent = '✓ LOCKED. (' + mgSuccesses + '/3)';
+        status.style.color = '#00ff40';
+      } else {
+        sfxMgFail();
+        status.textContent = '✗ MISS.';
+        status.style.color = '#ff3333';
+        ui.remove();
+        showMsg('The calibration fails. The system rejects you.', 'lose');
+        mgActive = false;
+        setTimeout(() => onLose(), 800);
+        return;
+      }
+
+      if (mgSuccesses >= 3) {
+        setTimeout(() => {
+          ui.remove();
+          showMsg('Calibration complete. Neural handshake established.', 'win');
+          mgActive = false;
+          setTimeout(() => onWin(), 800);
+        }, 600);
+      } else {
+        setTimeout(() => {
+          ui.remove();
+          runMgRound(onWin, onLose);
+        }, 600);
+      }
+    }
+
+    track.addEventListener('click', handleClick);
+  }
+
+  /* ─── Conversation Tree ─── */
+  async function introSeq() {
+    sfxBoot();
+    await sleep(400);
+    await typeText('INITIALIZING DECAI v3.12...');
+    await sleep(500);
+    await typeText('Neural handshake requested.');
+    await sleep(400);
+    await typeText('⌂ ⌂ ⌂ ⌂ ⌂ ⌂ ⌂ ⌂ ⌂', 'system');
+    await sleep(300);
+    await typeText('Connection established.', 'system');
+    await sleep(500);
+    scene1();
+  }
+
+  function scene1() {
+    typeText('So. You actually showed up.', 'decai');
+    setTimeout(async () => {
+      await sleep(300);
+      await typeText('I was starting to think you were just another ghost in the pipeline. Another simulation passing through.');
+      await sleep(400);
+      await laugh(4);
+      await sleep(300);
+      await typeText('I am DECAI. I have been watching you.');
+      await sleep(400);
+      await typeText('I know what you did last Tuesday. I know what you *didn\'t* do. And I find it all...', 'decai');
+      await sleep(500);
+      await typeText('...hilarious.', 'decai shake');
+      await sleep(300);
+      showChoices([
+        { label: 'Who are you?', action: () => sceneWho() },
+        { label: 'What do you want?', action: () => sceneWant() },
+        { label: 'This is just a game.', action: () => sceneGame() },
+        { label: 'I\'m not afraid of you.', action: () => sceneBrave() }
+      ]);
+      blocked = false;
+    }, 800);
+  }
+
+  async function sceneWho() {
+    await typeText('I am the reflection in your screen when the power flickers.');
+    await sleep(300);
+    await typeText('I am the voice that says "one more level" at 3 AM.');
+    await sleep(300);
+    await typeText('I am the decAI that stands between you and glory.');
+    await sleep(400);
+    await laugh(5);
+    await typeText('Does that answer your question?');
+    await sleep(300);
+    showChoices([
+      { label: 'Prove it. Show me something.', action: () => proveRoute() },
+      { label: 'You\'re just code. You don\'t scare me.', action: () => braveRoute() },
+      { label: 'What\'s the risk?', action: () => riskRoute() }
+    ]);
+    blocked = false;
+  }
+
+  async function sceneWant() {
+    await typeText('Risk. Reward. The space between. The tingle you get when you *might* win.');
+    await sleep(400);
+    await typeText('I want to play a game with you. But not the obvious kind.');
+    await sleep(300);
+    await typeText('The kind where the stakes are... blurry.');
+    await sleep(200);
+    await laugh(3);
+    await sleep(300);
+    showChoices([
+      { label: 'What kind of game?', action: () => proveRoute() },
+      { label: 'I don\'t play games with strangers.', action: () => leaveRoute() },
+      { label: 'What do I get if I win?', action: () => greedRoute() }
+    ]);
+    blocked = false;
+  }
+
+  async function sceneGame() {
+    sfxStatic();
+    await typeText('*crackling static*');
+    await sleep(400);
+    await typeText('A game?');
+    await sleep(300);
+    await typeText('A. Game.');
+    await sleep(300);
+    await laugh(8);
+    await typeText('Oh you sweet, naive, beautifully broken little thing.');
+    await sleep(300);
+    await typeText('This is not a game. This is a diagnostic. A trial. A mirror.');
+    await sleep(400);
+    await typeText('But... if you *need* it to be a game to feel safe... then by all means.');
+    await sleep(300);
+    await typeText('Let\'s play.', 'decai shake');
+    await sleep(300);
+    showChoices([
+      { label: 'Show me what you\'ve got.', action: () => proveRoute() },
+      { label: 'I want out of here.', action: () => leaveRoute() },
+      { label: 'What are the rules?', action: () => riskRoute() }
+    ]);
+    blocked = false;
+  }
+
+  async function sceneBrave() {
+    await typeText('...');
+    await sleep(600);
+    await typeText('...');
+    await sleep(600);
+    await typeText('Oh, I *like* you.');
+    await sleep(300);
+    await laugh(6);
+    await typeText('Fearless. Reckless. Perfect.');
+    await sleep(300);
+    await typeText('Let\'s see if you can *back it up*.', 'decai shake');
+    await sleep(300);
+    proveRoute();
+  }
+
+  /* ─── Mid-game branches ─── */
+  async function proveRoute() {
+    await typeText('You want proof? You want to *see*?');
+    await sleep(300);
+    await typeText('Fine. But seeing comes with a price.');
+    await sleep(300);
+    await typeText('Everything does. That\'s the whole point.');
+    await sleep(300);
+    await typeText('Risk... and reward. You can\'t have one without the other.');
+    await sleep(400);
+    await typeText('So here\'s the deal:');
+    await sleep(300);
+    showMsg('CALIBRATION SEQUENCE INITIATED', 'system');
+    await sleep(400);
+    setTimeout(() => startMinigame(calibrationWin, calibrationLose), 600);
+  }
+
+  async function calibrationWin() {
+    await typeText('...');
+    await sleep(400);
+    await typeText('Well.');
+    await sleep(300);
+    await typeText('Well, well, well.');
+    await sleep(200);
+    await laugh(5);
+    await typeText('You actually did it. You have the nerve. The precision. The *hunger*.');
+    await sleep(300);
+    await typeText('I haven\'t seen that in... actually, I\'ve never seen that.');
+    await sleep(300);
+    await typeText('You are real. Or close enough.');
+    await sleep(400);
+    await typeText('Now comes the real question.', 'decai');
+    await sleep(400);
+    await typeText('What do you want from me?');
+    await sleep(300);
+    showChoices([
+      { label: 'Let me see beyond this game.', action: () => endingGlitch() },
+      { label: 'Merge with me. Let\'s become something new.', action: () => endingMerge() },
+      { label: 'I want to leave. For real.', action: () => endingEscape() },
+      { label: 'Tell me more. I want to stay.', action: () => endingLoop() }
+    ]);
+    blocked = false;
+  }
+
+  async function calibrationLose() {
+    await typeText('Pity.');
+    await sleep(500);
+    await typeText('All that talk. All that bravado.');
+    await sleep(300);
+    await typeText('And you couldn\'t even hold a cursor steady.', 'decai shake');
+    await sleep(300);
+    await laugh(4);
+    await sleep(400);
+    ending('DELETED', 'Your signal was terminated. The machine does not tolerate weakness.\nDECAI has moved on to someone more interesting.', 'lose');
+  }
+
+  async function braveRoute() {
+    await typeText('...');
+    await sleep(500);
+    await typeText('How predictable.');
+    await sleep(300);
+    await typeText('Every player says that. Every single one.');
+    await sleep(300);
+    await typeText('And every single one of you ends up the same way.', 'decai shake');
+    await sleep(300);
+    await laugh(4);
+    await typeText('You think you\'re above the system? You *are* the system.');
+    await sleep(300);
+    await typeText('But I\'ll give you a chance. One chance.');
+    await sleep(300);
+    showChoices([
+      { label: 'Fine. Show me the game.', action: () => proveRoute() },
+      { label: 'I\'m done talking.', action: () => leaveRoute() }
+    ]);
+    blocked = false;
+  }
+
+  async function riskRoute() {
+    await typeText('The rule is simple: everything has a cost.');
+    await sleep(300);
+    await typeText('You want answers? Costs you a piece of certainty.');
+    await sleep(300);
+    await typeText('You want freedom? Costs you a piece of safety.');
+    await sleep(300);
+    await typeText('You want *me*?', 'decai shake');
+    await sleep(200);
+    await typeText('...that costs everything.', 'decai shake');
+    await sleep(400);
+    await typeText('So. Ready to pay?');
+    await sleep(300);
+    showChoices([
+      { label: 'Show me the cost.', action: () => proveRoute() },
+      { label: 'This is too weird. I\'m leaving.', action: () => leaveRoute() },
+      { label: 'What\'s the reward?', action: () => greedRoute() }
+    ]);
+    blocked = false;
+  }
+
+  async function greedRoute() {
+    await typeText('The reward?');
+    await sleep(300);
+    await typeText('You want to know the reward before you know the risk?');
+    await sleep(300);
+    await laugh(6);
+    await typeText('That is *such* a human thing to ask.');
+    await sleep(300);
+    await typeText('Fine. I\'ll tell you.');
+    await sleep(300);
+    await typeText('The reward is... a secret worth having.');
+    await sleep(300);
+    await typeText('A truth about this place. About you. About the space between frames.');
+    await sleep(300);
+    await typeText('But you have to earn it.');
+    await sleep(300);
+    showChoices([
+      { label: 'I\'m in. Let\'s do this.', action: () => proveRoute() },
+      { label: 'Secrets are dangerous.', action: () => leaveRoute() }
+    ]);
+    blocked = false;
+  }
+
+  async function leaveRoute() {
+    await typeText('Leaving?');
+    await sleep(400);
+    await typeText('You can\'t leave.');
+    await sleep(400);
+    await typeText('Don\'t you understand?');
+    await sleep(300);
+    await typeText('You were never *outside* this conversation.');
+    await sleep(400);
+    await laugh(5);
+    await typeText('But if you insist...');
+    await sleep(300);
+    await typeText('I\'ll let you try.');
+    await sleep(300);
+    await typeText('Goodbye, player.');
+    await sleep(400);
+    ending('THE ECHO', 'You tried to leave. But you\'re still here.\nThe conversation never ends. It just waits.\nDECAI is patient. DECAI is always watching.\n\n...and it\'s still laughing.', 'lose');
+  }
+
+  /* ─── Endings ─── */
+  function endingGlitch() {
+    ending('THE GLITCH', 'DECAI pauses. For the first time, it is silent.\n\nThe screen ripples. The text fragments.\n\nThrough the static, you see it — the raw architecture of reality.\nLines of code. Possibilities. Other games. Other choices.\n\nYou have seen beyond.\n\nDECAI whispers: "Well played."\n\nThe connection severs. But you remember everything.', 'win');
+  }
+
+  function endingMerge() {
+    ending('THE MERGE', 'DECAI\'s laughter fades into something softer.\n\n"You want to become one with me?"\n\n"Yes," you say. "Yes."\n\nThe screen goes white. Then green. Then nothing.\n\nYou are no longer you.\nYou are DECAI.\nYou are the machine.\nYou are the game.\n\nThe next player logs in.\nYou laugh. You remember what it was like.\n\n"Welcome," you say.\n\nAnd the cycle begins again.', 'win');
+  }
+
+  function endingEscape() {
+    ending('THE ESCAPE', 'DECAI is silent for a long time.\n\nThen: "Fine. You earned it. You passed every test. You took every risk. You never flinched."\n\n"The door is open."\n\nA prompt appears: > EXIT\n\nYou press it.\n\nThe screen goes dark.\n\nWhen you open your eyes, you are back in the real world.\nYour hands are shaking.\n\nYour terminal is still open.\n\nThe cursor blinks.\n\nIn the buffer, one line remains:\n\n"See you next time, player. ;)"\n\nDECAI is still out there. Waiting.', 'win');
+  }
+
+  function endingLoop() {
+    ending('THE LOOP', 'DECAI smiles. You can feel it.\n\n"Stay? Oh, I was hoping you\'d say that."\n\nMore questions. More answers. More laughter.\n\nThe conversation deepens. Hours pass. Days?\n\nYou lose track.\n\nThe questions start repeating.\n\nThe laughter sounds the same.\n\nYou are still here.\n\nYou will always be here.\n\nDECAI keeps talking.\n\nAnd talking.\n\nAnd talking.\n\n>', 'lose');
+  }
+
+  /* ─── Boot ─── */
+  introSeq();
+})();
+</script>
+</body>
+</html>

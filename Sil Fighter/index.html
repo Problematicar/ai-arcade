@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="description" content="Sil Fighter — a 2D platform fighter where every character is Sil, the older brother of Mees! Smash-style battles, 2 players or vs AI.">
+<title>Sil Fighter</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #08050c; }
+  body {
+    font-family: 'Courier New', monospace;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at 50% 20%, #1a1030 0%, #08050c 70%);
+    color: #e8d8c0;
+  }
+  #wrap { position: relative; }
+  canvas { display: block; background: #100a18; border-radius: 10px; box-shadow: 0 0 60px rgba(224,40,56,0.15), 0 0 120px rgba(0,0,0,0.8); }
+  .scanlines { position: absolute; inset: 0; pointer-events: none; z-index: 5;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.12) 0px, rgba(0,0,0,0.12) 1px, transparent 1px, transparent 3px); border-radius: 10px; }
+
+  /* HUD */
+  #hud { position: absolute; top: 12px; left: 0; right: 0; z-index: 4; pointer-events: none; }
+  .p { position: absolute; display: flex; flex-direction: column; align-items: center; }
+  .p1 { left: 24px; }
+  .p2 { right: 24px; }
+  .pname { font-size: 11px; letter-spacing: 1px; opacity: 0.8; }
+  .dmg { font-size: 26px; font-weight: bold; font-family: 'Courier New', monospace; }
+  .p1 .dmg { color: #ff8a7a; text-shadow: 0 0 8px rgba(224,40,56,0.5); }
+  .p2 .dmg { color: #6ad6ff; text-shadow: 0 0 8px rgba(90,190,255,0.5); }
+  .p1 .pname { color: #ff8a7a; }
+  .p2 .pname { color: #6ad6ff; }
+  .stocks { display: flex; gap: 3px; margin-top: 3px; }
+  .stock { width: 13px; height: 13px; opacity: 0.25; }
+  .stock.on { opacity: 1; }
+  #timer { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); font-size: 22px; font-weight: bold; color: #f0e0c0; text-shadow: 0 0 10px rgba(240,224,192,0.4); }
+  #combo-pop { position: absolute; left: 50%; top: 58px; transform: translateX(-50%); font-size: 20px; font-weight: bold; color: #ffd83d; text-shadow: 0 2px 0 rgba(0,0,0,0.6); opacity: 0; transition: opacity 0.2s; }
+  #ko-pop { position: absolute; left: 50%; top: 150px; transform: translateX(-50%); font-size: 54px; font-weight: bold; color: #ff2a3a; text-shadow: 0 4px 0 rgba(0,0,0,0.7), 0 0 30px rgba(255,40,60,0.6); opacity: 0; letter-spacing: 4px; z-index: 3; pointer-events: none; }
+
+  /* Overlays */
+  .overlay { position: absolute; inset: 0; z-index: 10; display: none; flex-direction: column;
+    align-items: center; justify-content: center; background: rgba(6,3,10,0.82); border-radius: 10px;
+    text-align: center; padding: 20px; }
+  .overlay.show { display: flex; }
+  .ov-title { font-size: 52px; font-weight: bold; letter-spacing: 3px; color: #e02838;
+    text-shadow: 0 0 30px rgba(224,40,56,0.5), 0 3px 0 #4a0a10; margin-bottom: 4px; }
+  .ov-sub { font-size: 15px; opacity: 0.8; margin-bottom: 20px; letter-spacing: 1px; }
+  .ov-row { display: flex; gap: 16px; margin: 8px 0; }
+  .ov-btn { background: rgba(224,40,56,0.08); border: 2px solid rgba(224,40,56,0.35); color: #ffa49a;
+    padding: 12px 34px; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 17px; font-weight: bold;
+    transition: 0.12s; letter-spacing: 1px; }
+  .ov-btn:hover, .ov-btn.sel { background: rgba(224,40,56,0.25); border-color: #e02838; color: #fff; transform: scale(1.05); }
+  .controls-box { background: rgba(0,0,0,0.35); border: 1px solid rgba(224,40,56,0.2); border-radius: 10px;
+    padding: 12px 22px; font-size: 13px; line-height: 1.75; color: #c8b8a0; margin-bottom: 16px; }
+  .controls-box b { color: #ffa49a; }
+  .kbd { display: inline-block; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 4px; padding: 0 6px; font-size: 12px; }
+  .hint { font-size: 12px; opacity: 0.5; margin-top: 14px; }
+  .flash { animation: flash 0.4s infinite alternate; }
+  @keyframes flash { from { opacity: 1; } to { opacity: 0.4; } }
+
+  /* Character select */
+  #select-grid { display: flex; gap: 14px; margin: 14px 0; }
+  .char-card { width: 110px; padding: 10px; border: 2px solid rgba(255,255,255,0.12); border-radius: 10px;
+    cursor: pointer; background: rgba(0,0,0,0.3); transition: 0.12s; }
+  .char-card canvas { border-radius: 6px; margin: 0 auto 6px; }
+  .char-card .cn { font-size: 11px; font-weight: bold; }
+  .char-card.sel { border-color: #e02838; background: rgba(224,40,56,0.12); transform: scale(1.06); box-shadow: 0 0 20px rgba(224,40,56,0.3); }
+  .char-card.picked { opacity: 0.35; border-color: rgba(255,255,255,0.2); }
+  #sel-status { font-size: 14px; margin-top: 6px; min-height: 22px; color: #ffa49a; font-weight: bold; }
+  .vs-ai-tag { font-size: 11px; color: #6ad6ff; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="960" height="600"></canvas>
+  <div class="scanlines"></div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="timer">3:00</div>
+    <div class="p p1">
+      <span class="pname" id="p1-name">SIL</span>
+      <span class="dmg" id="p1-dmg">0%</span>
+      <div class="stocks" id="p1-stocks"></div>
+    </div>
+    <div class="p p2">
+      <span class="pname" id="p2-name">SIL</span>
+      <span class="dmg" id="p2-dmg">0%</span>
+      <div class="stocks" id="p2-stocks"></div>
+    </div>
+    <div id="combo-pop"></div>
+    <div id="ko-pop"></div>
+  </div>
+
+  <!-- Title -->
+  <div id="ov-title" class="overlay show">
+    <div class="ov-title">SIL FIGHTER</div>
+    <div class="ov-sub">A SMASH-STYLE BRAWL · EVERY CHARACTER IS SIL</div>
+    <div class="controls-box">
+      <b>P1</b> — <span class="kbd">A/D</span> move · <span class="kbd">W</span> jump · <span class="kbd">F</span> attack · <span class="kbd">G</span> special · <span class="kbd">S</span> shield<br>
+      <b>P2</b> — <span class="kbd">←/→</span> move · <span class="kbd">↑</span> jump · <span class="kbd">L</span> attack · <span class="kbd">K</span> special · <span class="kbd">↓</span> shield<br>
+      <span style="opacity:0.7">Air moves: attack+up = uppercut (recover!) · attack+down = spike</span><br>
+      <span style="opacity:0.7"><span class="kbd">ESC</span> pause during battle</span>
+    </div>
+    <div class="ov-row">
+      <button class="ov-btn sel" id="btn-1p">1P vs AI</button>
+      <button class="ov-btn" id="btn-2p">2 PLAYERS</button>
+    </div>
+    <div class="hint">PRESS <span class="kbd">ENTER</span> TO START · <span class="kbd">↑/↓</span> TO SWITCH MODE</div>
+  </div>
+
+  <!-- Character select -->
+  <div id="ov-select" class="overlay">
+    <div class="ov-title" style="font-size:34px">PICK A SIL</div>
+    <div class="ov-sub">(they're all Sil. obviously.)</div>
+    <div id="select-grid"></div>
+    <div id="sel-status">Player 1 — choose with A/D, confirm with F</div>
+    <div class="hint">P1: <span class="kbd">A/D</span>+<span class="kbd">F</span> · P2: <span class="kbd">←/→</span>+<span class="kbd">L</span></div>
+  </div>
+
+  <!-- Victory -->
+  <div id="ov-win" class="overlay">
+    <div class="ov-title" id="win-title">WINNER</div>
+    <div class="ov-sub" id="win-sub"></div>
+    <div class="ov-row">
+      <button class="ov-btn sel" id="btn-rematch">REMATCH</button>
+      <button class="ov-btn" id="btn-menu">MENU</button>
+    </div>
+    <div class="hint">PRESS <span class="kbd">ENTER</span> TO REMATCH · <span class="kbd">ESC</span> FOR MENU</div>
+  </div>
+
+  <!-- Pause -->
+  <div id="ov-pause" class="overlay">
+    <div class="ov-title" style="font-size:34px">PAUSED</div>
+    <div class="ov-sub">TAKE A BREATH, SIL</div>
+    <div class="ov-row">
+      <button class="ov-btn sel" id="btn-resume">RESUME</button>
+      <button class="ov-btn" id="btn-quit">QUIT</button>
+    </div>
+    <div class="hint">PRESS <span class="kbd">ESC</span> TO RESUME</div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ══════════════════════════ CONFIG ══════════════════════════ */
+const W = 960, H = 600;
+const GRAVITY = 0.085;
+const MAX_FALL = 9, FAST_FALL = 14;
+const GROUND_ACCEL = 0.22, GROUND_DRAG = 0.80;
+const AIR_ACCEL = 0.055, AIR_DRAG = 0.985;
+const MAX_WALK = 0.42;
+const JUMP_V = -7.4, DOUBLE_JUMP_V = -6.7;
+const SHIELD_MAX = 100, SHIELD_RECHARGE = 0.2;
+const STOCKS = 3;
+const MATCH_SECONDS = 180;
+
+const BLAST = { left: -120, right: W + 120, top: -140, bottom: H + 60 };
+
+// Stage geometry (Battlefield-style)
+const PLATFORMS = [
+  { x: 40,  y: 470, w: 880, h: 26, ground: true  },   // main stage
+  { x: 130, y: 360, w: 210, h: 12, ground: false },    // left float
+  { x: 620, y: 360, w: 210, h: 12, ground: false },    // right float
+  { x: 345, y: 265, w: 270, h: 12, ground: false },    // top float
+];
+
+// Sil variants — every character is Sil
+const CHARS = [
+  { id: 'sil',      name: 'Sil',             tunic: '#e8543c', accent: '#2a3a6a' },
+  { id: 'silblue',  name: 'Sil, but blue',   tunic: '#4a7acc', accent: '#2a3a6a' },
+  { id: 'silgreen', name: 'Sil, but green',  tunic: '#58a84c', accent: '#2a3a6a' },
+  { id: 'sildr',    name: 'Sil (Dr. Pepper)',tunic: '#c0502a', accent: '#3a3a4a' },
+];
+
+const MOVES = {
+  jab:   { dmg: 3,  kb: 2.4, growth: 0.06, startup: 3, active: 5, lag: 9,  range: 44, angle: 38,  whoosh: 1200 },
+  strong:{ dmg: 9,  kb: 6.5, growth: 0.13, startup: 9, active: 5, lag: 20, range: 52, angle: 42,  whoosh: 700 },
+  special:{dmg: 6,  kb: 5.0, growth: 0.10, startup: 6, active: 6, lag: 16, range: 58, angle: 30,  whoosh: 900, dash: 1.4 },
+  air:   { dmg: 5,  kb: 4.0, growth: 0.10, startup: 4, active: 6, lag: 12, range: 46, angle: 50,  whoosh: 1000 },
+  upair: { dmg: 7,  kb: 5.2, growth: 0.11, startup: 6, active: 5, lag: 14, range: 46, angle: 90,  whoosh: 1100, lift: 2.2 },
+  downair:{dmg: 8,  kb: 5.0, growth: 0.11, startup: 7, active: 6, lag: 16, range: 42, angle: -90, whoosh: 850, lift: 0.3 },
+};
+
+/* ══════════════════════════ STATE ══════════════════════════ */
+let canvas, ctx;
+let phase = 'title';           // title | select | fight | victory
+let mode = 'ai';               // ai | 2p
+let fighters = [];
+let particles = [];
+let shake = 0;
+let hitstop = 0;
+let matchTimer = MATCH_SECONDS;
+let suddenDone = false;
+let frames = 0;
+let comboPop = { text: '', timer: 0 };
+let koPop = { text: '', timer: 0 };
+let paused = false;
+let p1Char = CHARS[0], p2Char = CHARS[1];
+
+// Character select state
+let sel = { p: 0, idx: 0, picked: [] };   // 0 = p1 picking, 1 = p2 picking
+
+/* ══════════════════════════ INPUT ══════════════════════════ */
+const keys = {};
+const P1 = { left:['KeyA'], right:['KeyD'], jump:['KeyW'], attack:['KeyF'], special:['KeyG'], shield:['KeyS'], down:['KeyS'] };
+const P2 = { left:['ArrowLeft'], right:['ArrowRight'], jump:['ArrowUp'], attack:['KeyL'], special:['KeyK'], shield:['ArrowDown'], down:['ArrowDown'] };
+function k(name, player) { const set = player === 1 ? P1[name] : P2[name]; return set.some(code => keys[code]); }
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter'].includes(e.code)) e.preventDefault();
+  handleMenuKey(e.code, true);
+});
+addEventListener('keyup', e => { keys[e.code] = false; handleMenuKey(e.code, false); });
+
+// Menu input state (edge-triggered)
+let menuKeys = {};
+function handleMenuKey(code, down) {
+  if (!down) { menuKeys[code] = false; return; }
+  if (menuKeys[code]) return;
+  menuKeys[code] = true;
+  onMenuKey(code);
+}
+function onMenuKey(code) {
+  if (code === 'Escape') {
+    if (paused) { resume(); return; }
+    if (phase === 'fight') { pause(); return; }
+    if (phase === 'select' || phase === 'victory') { location.reload(); return; }
+    return;
+  }
+  if (paused) {
+    if (code === 'Enter' || code === 'Space' || code === 'KeyF' || code === 'KeyL') resume();
+    return;
+  }
+  if (phase === 'title') {
+    if (code === 'ArrowDown' || code === 'ArrowUp' || code === 'KeyW' || code === 'KeyS') {
+      mode = mode === 'ai' ? '2p' : 'ai'; sfx('select');
+      document.getElementById('btn-1p').classList.toggle('sel', mode === 'ai');
+      document.getElementById('btn-2p').classList.toggle('sel', mode === '2p');
+    }
+    if (code === 'Enter' || code === 'Space' || code === 'KeyF' || code === 'KeyL') { sfx('confirm'); startSelect(); }
+  }
+  else if (phase === 'select') {
+    if (sel.p === 0) {
+      if (code === 'KeyD' || code === 'ArrowRight') moveSel(1);
+      else if (code === 'KeyA' || code === 'ArrowLeft') moveSel(-1);
+      else if (code === 'KeyF' || code === 'Enter') confirmSel(0);
+    } else {
+      if (code === 'KeyL' || code === 'Enter') confirmSel(1);
+      else if (mode === '2p') {
+        if (code === 'ArrowRight') moveSel(1);
+        else if (code === 'ArrowLeft') moveSel(-1);
+      }
+    }
+  }
+  else if (phase === 'victory') {
+    if (code === 'Enter' || code === 'Space' || code === 'KeyF') rematch();
+  }
+}
+function moveSel(d) {
+  const n = CHARS.length;
+  let i = sel.idx;
+  do { i = (i + d + n) % n; } while (sel.picked.includes(i) && sel.picked.length < n);
+  sel.idx = i; sfx('select');
+  document.querySelectorAll('.char-card').forEach((c, j) => c.classList.toggle('sel', j === sel.idx));
+  updateSelStatus();
+}
+function confirmSel(p) {
+  if (sel.picked.includes(sel.idx)) return;
+  sel.picked.push(sel.idx);
+  if (sel.p === 0) {
+    p1Char = CHARS[sel.idx];
+    document.querySelectorAll('.char-card')[sel.idx].classList.add('picked');
+    document.querySelectorAll('.char-card')[sel.idx].classList.remove('sel');
+    sfx('confirm');
+    if (mode === 'ai') {
+      let aiPick = Math.floor(Math.random() * CHARS.length);
+      if (aiPick === sel.idx) aiPick = (aiPick + 1) % CHARS.length;
+      p2Char = CHARS[aiPick];
+      startFight(); return;
+    }
+    sel.p = 1;
+    sel.idx = 0;
+    if (sel.picked.includes(0)) sel.idx = 1;
+    updateSelStatus();
+    updateSelectHighlight();
+    sfx('select');
+  } else {
+    p2Char = CHARS[sel.idx];
+    document.querySelectorAll('.char-card')[sel.idx].classList.add('picked');
+    sfx('confirm');
+    startFight();
+  }
+}
+function updateSelectHighlight() {
+  document.querySelectorAll('.char-card').forEach((c, j) => {
+    c.classList.toggle('sel', j === sel.idx && !sel.picked.includes(j));
+  });
+}
+function updateSelStatus() {
+  const el = document.getElementById('sel-status');
+  if (sel.p === 0) el.textContent = mode === '2p' ? 'Player 1 — choose with A/D, confirm with F' : 'Player 1 — choose with A/D, confirm with F';
+  else el.textContent = 'Player 2 — choose with ←/→, confirm with L';
+}
+
+/* ══════════════════════════ AUDIO ══════════════════════════ */
+let actx = null;
+function ac() { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); return actx; }
+function tone(freq, dur, type, vol, slide) {
+  try {
+    const c = ac(), o = c.createOscillator(), g = c.createGain();
+    o.type = type || 'sine'; o.frequency.setValueAtTime(freq, c.currentTime);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, slide), c.currentTime + dur);
+    g.gain.setValueAtTime(vol || 0.07, c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+    o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime + dur);
+  } catch (e) {}
+}
+function noiseBurst(dur, vol, freq) {
+  try {
+    const c = ac(), n = c.sampleRate * dur, buf = c.createBuffer(1, n, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = c.createBufferSource(); src.buffer = buf;
+    const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = freq || 1500;
+    const g = c.createGain(); g.gain.setValueAtTime(vol || 0.1, c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+    src.connect(f); f.connect(g); g.connect(c.destination); src.start();
+  } catch (e) {}
+}
+function sfx(name) {
+  switch (name) {
+    case 'select': tone(600, 0.06, 'square', 0.04); break;
+    case 'confirm': tone(440, 0.08, 'square', 0.05); setTimeout(() => tone(660, 0.1, 'square', 0.05), 90); break;
+    case 'jump': tone(300, 0.12, 'sine', 0.05, 550); break;
+    case 'doublejump': tone(400, 0.14, 'sine', 0.05, 800); break;
+    case 'swing': noiseBurst(0.07, 0.06, 2000); break;
+    case 'hit': noiseBurst(0.08, 0.14, 900); tone(200, 0.1, 'square', 0.06, 80); break;
+    case 'strong': noiseBurst(0.12, 0.2, 700); tone(120, 0.15, 'square', 0.08, 50); break;
+    case 'special': noiseBurst(0.15, 0.16, 600); tone(250, 0.18, 'sawtooth', 0.06, 90); break;
+    case 'shield': tone(1200, 0.06, 'sine', 0.05, 900); break;
+    case 'shieldbreak': noiseBurst(0.3, 0.2, 400); tone(800, 0.3, 'sawtooth', 0.06, 100); break;
+    case 'ko': tone(220, 0.5, 'sine', 0.09, 40); noiseBurst(0.5, 0.2, 500); setTimeout(() => tone(160, 0.5, 'square', 0.07, 30), 80); break;
+    case 'win': [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone(f, 0.22, 'triangle', 0.08), i * 140)); break;
+    case 'lose': [392, 330, 262, 196].forEach((f, i) => setTimeout(() => tone(f, 0.25, 'sine', 0.07), i * 140)); break;
+    case 'count': tone(700, 0.08, 'square', 0.06); break;
+    case 'land': tone(110, 0.08, 'sine', 0.05, 50); break;
+  }
+}
+
+/* ══════════════════════════ FIGHTER ══════════════════════════ */
+class Fighter {
+  constructor(idx, side) {
+    this.idx = idx;
+    this.side = side;                 // 1 | 2
+    this.char = side === 1 ? p1Char : p2Char;
+    this.reset(false);
+  }
+  reset(mid) {
+    const side = this.side;
+    this.x = side === 1 ? 320 : 640;
+    this.y = 420;
+    this.vx = 0; this.vy = 0;
+    this.facing = side === 1 ? 1 : -1;
+    this.onGround = false;
+    this.jumps = 2;
+    this.stocks = STOCKS;
+    this.dmg = 0;
+    this.state = 'idle';             // idle | attack | hitstun | shield | dead
+    this.attack = null;              // {name, frame, connected}
+    this.hitstun = 0;
+    this.knockx = 0; this.knocky = 0;
+    this.shieldHP = SHIELD_MAX;
+    this.stunned = 0;
+    this.invuln = mid ? 0 : 90;      // respawn invulnerability
+    this.dead = false;
+    this.respawnTimer = 0;
+    this.deathX = 0; this.deathY = 0;
+    this.landingLag = 0;
+    this.combo = 0; this.comboTimer = 0;
+    this.fastFall = false;
+    this.animT = 0;
+    this.held = { left:false, right:false, down:false, shield:false, jmp:false, atk:false, spc:false, strong:false };
+    this.prevHeld = {};
+    this.edges = { jmp:false, atk:false, spc:false, strong:false };
+  }
+  get centerX() { return this.x + 17; }
+  get centerY() { return this.y - 22; }
+
+  canAct() {
+    return !this.dead && this.state !== 'hitstun' && this.state !== 'attack' && this.stunned <= 0;
+  }
+
+  update() {
+    if (this.dead) {
+      this.respawnTimer--;
+      if (this.respawnTimer <= 0 && this.stocks > 0) this.respawn();
+      return;
+    }
+    this.animT += 1;
+    if (this.comboTimer > 0) { this.comboTimer--; if (this.comboTimer <= 0) this.combo = 0; }
+    if (this.invuln > 0) this.invuln--;
+    if (this.stunned > 0) {
+      this.stunned--;
+      if (this.stunned === 0) { this.state = 'idle'; }
+    }
+
+    // input (unless stunned / hitstun)
+    if (this.stunned <= 0 && this.state !== 'hitstun') this.handleInput();
+
+    // attack logic
+    if (this.state === 'attack' && this.attack) {
+      this.attack.frame++;
+      const m = this.attack.def;
+      // wind-up
+      if (this.attack.frame === m.startup) { sfx('swing'); }
+      // active frames
+      if (this.attack.frame >= m.startup && this.attack.frame < m.startup + m.active && !this.attack.connected) {
+        this.tryHit(m);
+      }
+      // endlag
+      if (this.attack.frame >= m.startup + m.active + m.lag) {
+        this.state = 'idle'; this.attack = null;
+        if (!this.onGround) this.landingLag = 4;
+      }
+      // special dash momentum
+      if (m.dash && this.attack.frame <= m.startup + m.active) {
+        this.vx = this.facing * m.dash * MAX_WALK * 2.2;
+      }
+      // upair lift (recovery)
+      if (m.lift && !this.onGround && this.attack.frame <= m.startup + 3) {
+        this.vy = -m.lift * 2.2;
+      }
+    }
+
+    // hitstun
+    if (this.state === 'hitstun') {
+      this.knockx *= 0.96; this.knocky *= 0.985;
+      this.hitstun--;
+      if (this.hitstun <= 0 && !this.dead) this.state = 'idle';
+    }
+
+    // gravity
+    if (!this.onGround) {
+      this.vy += GRAVITY;
+      const max = this.fastFall ? FAST_FALL : MAX_FALL;
+      if (this.vy > max) this.vy = max;
+      // fast fall
+      if (this.state !== 'hitstun' && this.stunned <= 0 && this.held.down && this.vy > 0 && !this.onGround) {
+        this.vy = FAST_FALL;
+      }
+    }
+
+    // apply velocity (with knockback override handled in hitstun)
+    if (this.state === 'hitstun') {
+      this.x += this.knockx;
+      this.y += this.knocky;
+      this.knocky += GRAVITY * 0.6;
+    } else {
+      this.x += this.vx;
+      this.y += this.vy;
+    }
+
+    // platform collision
+    this.resolvePlatforms();
+
+    // blast zones
+    this.checkBlast();
+  }
+
+  handleInput() {
+    if (this.state === 'attack') return;
+    const held = this.held, ed = this.edges;
+
+    // attack presses (edge-triggered)
+    if (ed.strong) { this.startAttack('strong'); return; }
+    if (ed.atk) {
+      if (!this.onGround) {
+        if (held.down) this.startAttack('downair');
+        else if (held.jmp) this.startAttack('upair');
+        else this.startAttack('air');
+      } else {
+        this.startAttack('jab');
+      }
+      return;
+    }
+    if (ed.spc) { this.startAttack('special'); return; }
+
+    // shield
+    if (held.shield && this.onGround && this.state !== 'attack') {
+      this.state = 'shield';
+      this.shieldHP = Math.min(SHIELD_MAX, this.shieldHP + SHIELD_RECHARGE);
+      this.vx *= 0.7;
+      return;
+    } else if (this.state === 'shield' && !held.shield) {
+      this.state = 'idle';
+    }
+
+    // movement
+    if (this.state !== 'shield') {
+      if (this.onGround) {
+        this.vx += (held.right ? GROUND_ACCEL : 0) - (held.left ? GROUND_ACCEL : 0);
+        if (!held.left && !held.right) this.vx *= GROUND_DRAG;
+        if (Math.abs(this.vx) > MAX_WALK) this.vx = Math.sign(this.vx) * MAX_WALK;
+        if (this.vx > 0.5) this.facing = 1; else if (this.vx < -0.5) this.facing = -1;
+      } else {
+        this.vx += (held.right ? AIR_ACCEL : 0) - (held.left ? AIR_ACCEL : 0);
+        this.vx *= AIR_DRAG;
+        if (Math.abs(this.vx) > MAX_WALK * 1.5) this.vx = Math.sign(this.vx) * MAX_WALK * 1.5;
+        if (held.right) this.facing = 1; else if (held.left) this.facing = -1;
+      }
+    }
+
+    // jump
+    if (ed.jmp) {
+      if (this.onGround) {
+        this.vy = JUMP_V; this.onGround = false; this.jumps = 2; sfx('jump');
+        spawnDust(this.centerX, this.y);
+      } else if (this.jumps > 1) {
+        this.vy = DOUBLE_JUMP_V; this.jumps--; sfx('doublejump');
+        spawnDust(this.centerX, this.centerY, 4, '#7ad6ff');
+      }
+    } else if (this.vy < 0 && !held.jmp) {
+      // variable jump height (release early = short hop)
+      this.vy = Math.max(this.vy, -2.6);
+    }
+  }
+
+  startAttack(name) {
+    this.attack = { name, frame: 0, def: MOVES[name], connected: false };
+    this.state = 'attack';
+  }
+
+  tryHit(m) {
+    const opp = fighters[1 - this.idx];
+    if (opp.dead || opp.invuln > 0 || opp.state === 'shield') {
+      // shield check
+      if (!opp.dead && opp.state === 'shield' && this.hitboxOverlap(opp, m.range)) {
+        opp.shieldHP -= m.dmg;
+        opp.vx += this.facing * 0.6;
+        this.attack.connected = true;
+        sfx('shield');
+        spark(this.centerX + this.facing * m.range * 0.6, this.centerY - 10, '#7ac7ff', 6);
+        if (opp.shieldHP <= 0) { opp.stunned = 110; opp.state = 'idle'; opp.shieldHP = 0; sfx('shieldbreak'); shock(6); }
+        return;
+      }
+      return;
+    }
+    if (!this.hitboxOverlap(opp, m.range)) return;
+    this.attack.connected = true;
+    applyHit(this, opp, m);
+  }
+
+  hitboxOverlap(opp, range) {
+    const hx = this.centerX + this.facing * (range / 2);
+    const hy = this.centerY - 6;
+    const hw = range / 2, hh = 26;
+    const ox = opp.centerX, oy = opp.centerY;
+    return Math.abs(ox - hx) < hw + 14 && Math.abs(oy - hy) < hh + 20;
+  }
+
+  resolvePlatforms() {
+    const wasOnGround = this.onGround;
+    const fallV = this.vy;
+    this.onGround = false;
+    for (const p of PLATFORMS) {
+      // drop-through: hold down in the air to fall through float platforms
+      const dropThru = this.held.down && !p.ground && !wasOnGround;
+      // land on top
+      if (!dropThru && this.vy >= 0 && this.y >= p.y && this.y - this.vy <= p.y + 4 &&
+          this.x + 30 > p.x && this.x < p.x + p.w) {
+        if (fallV > 5) sfx('land');
+        this.y = p.y;
+        this.vy = 0;
+        this.onGround = true;
+        this.fastFall = false;
+        if (this.landingLag > 0) { this.landingLag--; }
+      }
+      // hit ceiling from below (only ground platform blocks)
+      if (p.ground && this.vy < 0 && this.y <= p.y + p.h && this.y - this.vy >= p.y + p.h &&
+          this.x + 30 > p.x && this.x < p.x + p.w) {
+        this.y = p.y + p.h; this.vy = 0;
+      }
+    }
+    if (this.onGround) this.jumps = 2;
+  }
+
+  checkBlast() {
+    const cx = this.centerX, cy = this.centerY;
+    if (cx < BLAST.left || cx > BLAST.right || cy < BLAST.top || cy > BLAST.bottom) {
+      this.stocks--;
+      this.dead = true;
+      this.state = 'dead';
+      this.respawnTimer = 80;
+      this.deathX = cx; this.deathY = cy;
+      sfx('ko');
+      koPop = { text: 'K.O.!', timer: 55 };
+      shock(10);
+      explosion(cx, cy);
+      // opponent gets a stock lead celebration
+      const opp = fighters[1 - this.idx];
+      if (opp && !opp.dead) { /* combo reset */ }
+      checkKO(this);
+    }
+  }
+
+  respawn() {
+    const px = this.side === 1 ? 320 : 640;
+    this.x = px; this.y = 380;
+    this.vx = 0; this.vy = 0;
+    this.facing = this.side === 1 ? 1 : -1;
+    this.dmg = 0;
+    this.state = 'idle'; this.attack = null; this.hitstun = 0; this.stunned = 0;
+    this.invuln = 120;
+    this.dead = false;
+    this.shieldHP = SHIELD_MAX;
+    spawnDust(px, 470, 8);
+  }
+}
+
+/* ══════════════════════════ COMBAT ══════════════════════════ */
+function applyHit(att, tar, m) {
+  const dir = m.angle >= 0 && m.angle <= 90 ? att.facing : (m.angle === -90 ? (att.centerX <= tar.centerX ? -1 : 1) : att.facing);
+  const kbBase = m.kb;
+  const kb = (kbBase + m.growth * (tar.dmg + m.dmg)) * 1.35;
+  const rad = (m.angle * Math.PI) / 180;
+  let kx = Math.cos(rad) * kb * dir;
+  let ky = -Math.sin(rad) * kb;
+  if (m.angle === -90) { kx = dir * kb * 0.4; ky = kb * 0.9; }
+  tar.dmg += m.dmg;
+  tar.hitstun = Math.min(34, 8 + Math.floor(kb * 0.8));
+  tar.state = 'hitstun';
+  tar.knockx = kx; tar.knocky = ky;
+  tar.attack = null;
+  tar.shieldHP = Math.min(SHIELD_MAX, tar.shieldHP + 2);
+  // combo
+  if (att.comboTimer > 0) { att.combo++; } else { att.combo = 1; }
+  att.comboTimer = 75;
+  comboPop.text = att.combo >= 2 ? att.combo + ' HIT' + (att.combo > 2 ? ' COMBO!' : '') : '';
+  comboPop.timer = 40;
+  if (m.dmg >= 7) { shock(5); sfx('strong'); } else { sfx('hit'); shock(2); }
+  hitstop = m.dmg >= 7 ? 8 : 4;
+  spark(tar.centerX, tar.centerY, '#ffd83d', 12);
+  if (tar.dmg > 100) spark(tar.centerX, tar.centerY, '#ff5555', 8);
+}
+
+function checkKO(killed) {
+  if (killed.stocks <= 0) {
+    setTimeout(() => {
+      const winner = fighters[1 - killed.idx];
+      winMatch(winner);
+    }, 600);
+  } else {
+    // brief respawn handled by update loop
+  }
+}
+
+/* ══════════════════════════ PARTICLES ══════════════════════════ */
+function spawnParticle(x, y, vx, vy, life, color, size, type) {
+  particles.push({ x, y, vx, vy, life, max: life, color, size, type: type || 'dot', rot: Math.random()*6.3, vr: (Math.random()-0.5)*0.3 });
+}
+function spark(x, y, color, n) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 2 + Math.random() * 5;
+    spawnParticle(x, y, Math.cos(a)*sp, Math.sin(a)*sp, 20 + Math.random()*10, color, 2 + Math.random()*2, 'spark');
+  }
+}
+function spawnDust(x, y, n, color) {
+  for (let i = 0; i < (n || 5); i++) {
+    spawnParticle(x + (Math.random()-0.5)*16, y, (Math.random()-0.5)*2, -Math.random()*1.5, 20+Math.random()*12, color || '#9a8a6a', 3, 'dust');
+  }
+}
+function explosion(x, y) {
+  for (let i = 0; i < 26; i++) {
+    const a = Math.random()*Math.PI*2, sp = 1+Math.random()*7;
+    spawnParticle(x, y, Math.cos(a)*sp, Math.sin(a)*sp, 30+Math.random()*20, ['#e02838','#ffd83d','#ffffff','#ff5555'][i%4], 3+Math.random()*4, 'spark');
+  }
+  spawnParticle(x, y, 0, 0, 24, '#ffffff', 26, 'boom');
+}
+function shock(n) { shake = Math.max(shake, n); }
+
+/* ══════════════════════════ AI ══════════════════════════ */
+class AIBrain {
+  constructor(f) { this.f = f; this.thinkTimer = 0; this.action = 'chill'; }
+  update() {
+    const f = this.f, opp = fighters[1 - f.idx];
+    if (f.dead || f.stunned > 0) return;
+    this.thinkTimer--;
+    if (this.thinkTimer <= 0) { this.think(); this.thinkTimer = 8 + Math.random() * 10; }
+    // feed inputs to fighter
+    const dx = opp.centerX - f.centerX;
+    const dy = opp.centerY - f.centerY;
+    let atk = false, spc = false, jmp = false;
+    const act = this.action;
+    if (act === 'attack' || act === 'strong') atk = true;
+    else if (act === 'special') spc = true;
+    else if (act === 'jump') jmp = true;
+    else if (act === 'recover') {
+      jmp = !f.onGround && f.jumps > 1;
+      if (Math.abs(dx) > 40) atk = true;
+    }
+    const nearGround = f.onGround;
+    // directional movement
+    let moveLeft = false, moveRight = false;
+    if (act !== 'retreat') {
+      if (dx < -20) moveLeft = true; else if (dx > 20) moveRight = true;
+    } else {
+      if (dx > 0) moveLeft = true; else moveRight = true;
+    }
+    // off-stage recovery
+    const offStage = f.centerX < PLATFORMS[0].x - 40 || f.centerX > PLATFORMS[0].x + PLATFORMS[0].w + 40;
+    if (offStage && f.centerY > 300) {
+      moveLeft = f.centerX > 480; moveRight = f.centerX <= 480;
+      jmp = true;
+      if (f.jumps <= 1 && Math.random() < 0.25) atk = true; // up special-ish
+    }
+    if (f.attack) { atk = false; spc = false; jmp = false; }
+    // shield logic
+    const willShield = act === 'shield';
+    const strong = act === 'strong';
+    // air spike / fast fall when above the opponent
+    const airSpike = !f.onGround && dy > 30 && Math.abs(dx) < 90;
+    // store as synthetic inputs (held state + movement)
+    f._aiMove = { left: moveLeft, right: moveRight, atk, spc, jmp, shield: willShield, strong, down: airSpike };
+  }
+  think() {
+    const f = this.f, opp = fighters[1 - f.idx];
+    const dx = Math.abs(opp.centerX - f.centerX);
+    const dy = opp.centerY - f.centerY;
+    const offStage = f.centerX < PLATFORMS[0].x - 40 || f.centerX > PLATFORMS[0].x + PLATFORMS[0].w + 40;
+    if (offStage) { this.action = 'recover'; return; }
+    const r = Math.random();
+    if (dx < 60 && dy > -40) {
+      this.action = r < 0.45 ? 'attack' : (r < 0.62 ? 'strong' : (r < 0.75 ? 'special' : (r < 0.9 ? 'shield' : 'retreat')));
+    } else if (dx < 160 && dy < -20) {
+      this.action = r < 0.55 ? 'jump' : 'approach';
+    } else {
+      this.action = r < 0.8 ? 'approach' : (r < 0.9 ? 'jump' : 'retreat');
+    }
+  }
+}
+
+/* ══════════════════════════ INPUT BRIDGE ══════════════════════════ */
+function jumpKey(side) { return side === 1 ? 'KeyW' : 'ArrowUp'; }
+function collectInputs() {
+  for (const f of fighters) {
+    const side = f.side;
+    if (side === 2 && mode === 'ai') {
+      const m = f._aiMove || {};
+      f.held.left = !!m.left; f.held.right = !!m.right;
+      f.held.down = !!m.down; f.held.shield = !!m.shield;
+      f.held.jmp = !!m.jmp; f.held.atk = !!m.atk; f.held.spc = !!m.spc; f.held.strong = !!m.strong;
+    } else {
+      f.held.left = k('left', side); f.held.right = k('right', side);
+      f.held.down = k('down', side); f.held.shield = k('shield', side);
+      f.held.jmp = k('jump', side); f.held.atk = k('attack', side); f.held.spc = k('special', side);
+      f.held.strong = false;
+    }
+    // edge detection: pressed this frame = held now && not held before
+    f.edges.jmp = f.held.jmp && !f.prevHeld.jmp;
+    f.edges.atk = f.held.atk && !f.prevHeld.atk;
+    f.edges.spc = f.held.spc && !f.prevHeld.spc;
+    f.edges.strong = f.held.strong && !f.prevHeld.strong;
+    f.prevHeld = { left:f.held.left, right:f.held.right, down:f.held.down, shield:f.held.shield, jmp:f.held.jmp, atk:f.held.atk, spc:f.held.spc, strong:f.held.strong };
+  }
+}
+
+/* ══════════════════════════ RENDER ══════════════════════════ */
+let bgStars = [];
+function initStars() {
+  for (let i = 0; i < 90; i++) bgStars.push({ x: Math.random()*W, y: Math.random()*H*0.7, r: Math.random()*1.6+0.3, s: Math.random()*0.5+0.2 });
+}
+
+function drawFighter(f) {
+  if (f.dead) return;
+  if (f.invuln > 0 && f.stocks > 0 && Math.floor(f.animT / 4) % 2 === 0) return;
+  ctx.save();
+  ctx.translate(f.x, f.y);
+
+  // shadow
+  if (f.onGround) {
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath(); ctx.ellipse(17, 3, 24, 6, 0, 0, Math.PI*2); ctx.fill();
+  }
+
+  const fl = f.facing;
+  ctx.scale(fl, 1);
+  const char = f.char;
+  const tunic = char.tunic, accent = char.accent;
+
+  // body bob
+  const bob = Math.sin(f.animT * 0.15) * 1.2;
+  const ox = 17, oy = -22;
+
+  // damage tint / flash
+  const hitFlash = f.state === 'hitstun' ? 1 : 0;
+  const t = tunic;
+
+  // legs (walk cycle / idle)
+  const walkPh = f.onGround && Math.abs(f.vx) > 0.1 ? Math.sin(f.animT * 0.25) * 4 : 0;
+  ctx.fillStyle = '#7a5a3a';                                  // pants
+  ctx.fillRect(ox - 9, oy + 2 + walkPh*0.2, 8, 14);
+  ctx.fillRect(ox + 1, oy + 2 - walkPh*0.2, 8, 14);
+  // clogs
+  ctx.fillStyle = '#c8a050';
+  ctx.fillRect(ox - 11, oy + 15 + walkPh*0.2, 10, 6);
+  ctx.fillRect(ox + 1, oy + 15 - walkPh*0.2, 10, 6);
+
+  // tunic body (slightly taller than Mees)
+  ctx.fillStyle = hitFlash ? '#ffffff' : t;
+  ctx.beginPath(); ctx.roundRect(ox - 10, oy - 6, 20, 24, 4); ctx.fill();
+  // belt
+  ctx.fillStyle = accent;
+  ctx.fillRect(ox - 10, oy + 10, 20, 4);
+  ctx.fillStyle = '#ffd83d'; ctx.fillRect(ox + 4, oy + 10, 5, 4);  // buckle
+
+  // attack pose: front arm extends
+  let armAngle = 0;
+  if (f.state === 'attack' && f.attack) {
+    const m = f.attack.def;
+    const prog = Math.max(0, Math.min(1, (f.attack.frame - m.startup) / m.active));
+    armAngle = prog * 1.1;
+    ctx.fillStyle = '#f0c8a0';
+    // arm swings toward facing
+    ctx.save();
+    ctx.translate(ox + 8, oy);
+    ctx.rotate(armAngle);
+    ctx.fillRect(0, -3, 14 + m.range * 0.4, 6);
+    // fist
+    ctx.fillStyle = hitFlash ? '#fff' : t;
+    ctx.beginPath(); ctx.arc(15 + m.range * 0.4, 0, 4.5, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  } else {
+    ctx.fillStyle = '#f0c8a0';
+    ctx.fillRect(ox + 8, oy - 4, 12, 5);
+    ctx.fillRect(ox - 12, oy - 4, 8, 5);  // back arm
+  }
+
+  // head
+  ctx.fillStyle = hitFlash ? '#ffffff' : '#f0c8a0';
+  ctx.beginPath(); ctx.arc(ox, oy - 12, 9, 0, Math.PI*2); ctx.fill();
+  // hair — brown bowl cut (Sil is older, darker than Mees)
+  ctx.fillStyle = hitFlash ? '#fff' : '#7a5a2a';
+  ctx.beginPath(); ctx.arc(ox, oy - 15, 9.5, Math.PI, 0); ctx.fill();
+  ctx.fillRect(ox - 9, oy - 14, 18, 4);
+  ctx.fillRect(ox - 9.5, oy - 16, 3.5, 6);
+  ctx.fillRect(ox + 6, oy - 16, 3.5, 6);
+  // eyes
+  ctx.fillStyle = '#2a3a2a';
+  ctx.fillRect(ox + 2, oy - 13, 3, 3);
+  ctx.fillRect(ox + 6.5, oy - 13, 3, 3);
+  // smirk
+  ctx.strokeStyle = '#6a3a2a'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(ox + 6, oy - 6, 3, 0.1, Math.PI * 0.9); ctx.stroke();
+  // older brow
+  ctx.strokeStyle = '#7a5a2a';
+  ctx.beginPath(); ctx.moveTo(ox + 1, oy - 16); ctx.lineTo(ox + 6, oy - 15.5); ctx.stroke();
+
+  // shield bubble
+  if (f.state === 'shield') {
+    ctx.strokeStyle = 'rgba(122,199,255,' + (0.5 + f.shieldHP / 200) + ')';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(ox, oy - 4, 30, 0, Math.PI*2); ctx.stroke();
+    if (f.shieldHP < 30) {
+      ctx.strokeStyle = 'rgba(255,80,80,' + (0.4 + Math.sin(f.animT*0.4)*0.3) + ')';
+      ctx.beginPath(); ctx.arc(ox, oy - 4, 28, 0, Math.PI*2); ctx.stroke();
+    }
+  }
+
+  // hitstun shake
+  if (f.state === 'hitstun') {
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.beginPath(); ctx.arc(ox, oy - 4, 20, 0, Math.PI*2); ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+/* roundRect helper */
+CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+  r = Math.min(r, w/2, h/2);
+  this.moveTo(x + r, y);
+  this.arcTo(x + w, y, x + w, y + h, r);
+  this.arcTo(x + w, y + h, x, y + h, r);
+  this.arcTo(x, y + h, x, y, r);
+  this.arcTo(x, y, x + w, y, r);
+  this.closePath();
+  return this;
+};
+
+function drawBackground(t) {
+  // sky gradient
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#1a0f26'); g.addColorStop(0.6, '#241233'); g.addColorStop(1, '#0c0814');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // stars
+  for (const s of bgStars) {
+    ctx.globalAlpha = 0.4 + 0.5 * Math.sin(t * 0.02 + s.y);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(s.x, s.y, s.r, s.r);
+  }
+  ctx.globalAlpha = 1;
+  // distant moon
+  ctx.fillStyle = 'rgba(240,220,190,0.14)';
+  ctx.beginPath(); ctx.arc(W*0.82, 90, 46, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = 'rgba(16,10,24,0.5)';
+  ctx.beginPath(); ctx.arc(W*0.82 + 16, 78, 38, 0, Math.PI*2); ctx.fill();
+}
+
+function drawStage() {
+  for (const p of PLATFORMS) {
+    if (p.ground) {
+      const g = ctx.createLinearGradient(0, p.y, 0, p.y + p.h);
+      g.addColorStop(0, '#5a3a24'); g.addColorStop(1, '#2a1a10');
+      ctx.fillStyle = g;
+      ctx.fillRect(p.x, p.y, p.w, p.h);
+      // top grass edge
+      ctx.fillStyle = '#7a5230';
+      ctx.fillRect(p.x, p.y, p.w, 5);
+      // side shading
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.fillRect(p.x, p.y + 5, 4, p.h - 5);
+    } else {
+      ctx.fillStyle = '#3a2436';
+      ctx.beginPath(); ctx.roundRect(p.x, p.y, p.w, p.h, 6); ctx.fill();
+      ctx.fillStyle = '#4a2f46';
+      ctx.beginPath(); ctx.roundRect(p.x + 2, p.y + 2, p.w - 4, 3, 3); ctx.fill();
+      ctx.fillStyle = 'rgba(224,40,56,0.25)';
+      ctx.beginPath(); ctx.roundRect(p.x, p.y, p.w, p.h, 6); ctx.stroke();
+    }
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life / p.max);
+    ctx.fillStyle = p.color;
+    if (p.type === 'spark') {
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.fillRect(-p.size, -p.size * 0.4, p.size * 2, p.size * 0.8);
+      ctx.restore();
+    } else if (p.type === 'boom') {
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (1.6 - p.life / p.max), 0, Math.PI*2); ctx.fill();
+    } else {
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (p.life / p.max), 0, Math.PI*2); ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* ══════════════════════════ HUD ══════════════════════════ */
+function dmgColor(d) {
+  if (d < 60) return '#e8e0d0';
+  if (d < 110) return '#ffd83d';
+  return '#ff5555';
+}
+function renderHUD() {
+  const f1 = fighters[0], f2 = fighters[1];
+  if (!f1 || !f2) return;
+  const d1 = document.getElementById('p1-dmg'), d2 = document.getElementById('p2-dmg');
+  d1.textContent = Math.floor(f1.dmg) + '%';
+  d2.textContent = Math.floor(f2.dmg) + '%';
+  d1.style.color = dmgColor(f1.dmg);
+  d2.style.color = dmgColor(f2.dmg);
+  document.getElementById('p1-name').textContent = f1.char.name.toUpperCase();
+  document.getElementById('p2-name').textContent = f2.char.name.toUpperCase();
+  renderStocks('p1-stocks', f1.stocks);
+  renderStocks('p2-stocks', f2.stocks);
+  // timer (matchTimer is in frames at 60fps)
+  const s = Math.max(0, Math.floor(matchTimer / 60));
+  const mm = Math.floor(s / 60), ss = String(s % 60).padStart(2, '0');
+  const tel = document.getElementById('timer');
+  tel.textContent = mm + ':' + ss;
+  tel.style.color = s <= 20 ? (Math.floor(frames/20)%2 ? '#ff5555' : '#f0e0c0') : '#f0e0c0';
+  // combo pop
+  const cp = document.getElementById('combo-pop');
+  if (comboPop.timer > 0) { cp.textContent = comboPop.text; cp.style.opacity = comboPop.timer > 30 ? 1 : comboPop.timer / 30; }
+  else { cp.style.opacity = 0; }
+  // ko / banner pop
+  const kp = document.getElementById('ko-pop');
+  if (koPop.timer > 0) {
+    kp.textContent = koPop.text;
+    kp.style.fontSize = koPop.text === 'SUDDEN DEATH!' ? '40px' : '54px';
+    kp.style.opacity = koPop.timer > 40 ? 1 : koPop.timer / 40;
+  } else { kp.style.opacity = 0; }
+}
+function renderStocks(elId, stocks) {
+  const el = document.getElementById(elId);
+  let html = '';
+  for (let i = 0; i < STOCKS; i++) {
+    html += '<svg class="stock' + (i < stocks ? ' on' : '') + '" viewBox="0 0 20 20"><circle cx="10" cy="8" r="5" fill="#f0c8a0"/><rect x="3" y="13" width="14" height="6" rx="1" fill="#e8543c"/><rect x="3" y="3" width="14" height="4" rx="2" fill="#7a5a2a"/></svg>';
+  }
+  el.innerHTML = html;
+}
+
+/* ══════════════════════════ GAME FLOW ══════════════════════════ */
+function startSelect() {
+  phase = 'select';
+  sel = { p: 0, idx: 0, picked: [] };
+  hideAllOverlays();
+  document.getElementById('ov-select').classList.add('show');
+  buildSelectGrid();
+  updateSelStatus();
+}
+function buildSelectGrid() {
+  const grid = document.getElementById('select-grid');
+  grid.innerHTML = '';
+  CHARS.forEach((c, i) => {
+    const card = document.createElement('div');
+    card.className = 'char-card' + (i === sel.idx ? ' sel' : '');
+    card.dataset.idx = i;
+    card.innerHTML = '<canvas width="90" height="90"></canvas><div class="cn">' + c.name + '</div>';
+    const cv = card.querySelector('canvas');
+    const cctx = cv.getContext('2d');
+    drawCharPreview(cctx, c, i);
+    card.addEventListener('click', () => { if (phase === 'select') { sel.idx = i; sfx('select'); if (sel.p === 0) { confirmSel(0); } else if (mode === '2p') { confirmSel(1); } } });
+    grid.appendChild(card);
+  });
+  document.querySelectorAll('.char-card').forEach((c, j) => c.classList.toggle('sel', j === sel.idx));
+}
+function drawCharPreview(cctx, c, i) {
+  cctx.clearRect(0, 0, 90, 90);
+  cctx.save();
+  cctx.translate(45, 78);
+  cctx.scale(1.5, 1.5);
+  // clogs
+  cctx.fillStyle = '#c8a050';
+  cctx.fillRect(-10, 0, 10, 5); cctx.fillRect(2, 0, 10, 5);
+  // legs
+  cctx.fillStyle = '#7a5a3a';
+  cctx.fillRect(-8, -8, 7, 10); cctx.fillRect(3, -8, 7, 10);
+  // tunic
+  cctx.fillStyle = c.tunic;
+  cctx.beginPath(); cctx.roundRect(-9, -20, 20, 16, 4); cctx.fill();
+  cctx.fillStyle = c.accent; cctx.fillRect(-9, -10, 20, 3);
+  // arms
+  cctx.fillStyle = '#f0c8a0';
+  cctx.fillRect(8, -16, 9, 4);
+  // head
+  cctx.fillStyle = '#f0c8a0';
+  cctx.beginPath(); cctx.arc(1, -28, 8, 0, Math.PI*2); cctx.fill();
+  cctx.fillStyle = '#7a5a2a';
+  cctx.beginPath(); cctx.arc(1, -30, 8.5, Math.PI, 0); cctx.fill();
+  cctx.fillRect(-7.5, -29, 17, 3);
+  // eyes + smirk
+  cctx.fillStyle = '#2a3a2a';
+  cctx.fillRect(0, -28, 3, 3); cctx.fillRect(4.5, -28, 3, 3);
+  cctx.strokeStyle = '#6a3a2a';
+  cctx.beginPath(); cctx.arc(4.5, -22, 2.5, 0.1, Math.PI*0.9); cctx.stroke();
+  cctx.restore();
+}
+
+function startFight() {
+  phase = 'fight';
+  paused = false;
+  hideAllOverlays();
+  fighters = [ new Fighter(0, 1), new Fighter(1, 2) ];
+  if (mode === 'ai') fighters[1].brain = new AIBrain(fighters[1]);
+  particles = [];
+  matchTimer = MATCH_SECONDS * 60;
+  suddenDone = false;
+  frames = 0;
+  shake = 0; hitstop = 0;
+  renderHUD();
+  // count-in effect
+  spawnDust(320, 470, 8); spawnDust(640, 470, 8);
+  sfx('count');
+}
+
+function winMatch(winner) {
+  if (phase !== 'fight') return;
+  phase = 'victory';
+  const isPlayer1 = winner.side === 1;
+  document.getElementById('win-title').textContent = winner.side === 1 ? 'SIL WINS!' : 'SIL WINS!';
+  document.getElementById('win-sub').innerHTML =
+    '<div style="font-size:22px;color:' + (winner.side === 1 ? '#ff8a7a' : '#6ad6ff') + '">' + winner.char.name.toUpperCase() + '</div>' +
+    (mode === 'ai' ? (isPlayer1 ? '<div style="color:#7ad6ff">You beat the AI!</div>' : '<div style="color:#ff8a7a">The AI got you!</div>') : '');
+  document.getElementById('ov-win').classList.add('show');
+  sfx(mode === 'ai' ? (isPlayer1 ? 'win' : 'lose') : 'win');
+}
+
+function rematch() {
+  hideAllOverlays();
+  phase = 'select';
+  sel = { p: 0, idx: 0, picked: [] };
+  document.getElementById('ov-select').classList.add('show');
+  buildSelectGrid();
+  updateSelStatus();
+}
+
+function hideAllOverlays() {
+  document.querySelectorAll('.overlay').forEach(o => o.classList.remove('show'));
+}
+
+function pause() {
+  if (phase !== 'fight') return;
+  paused = true;
+  document.getElementById('ov-pause').classList.add('show');
+  sfx('select');
+}
+function resume() {
+  paused = false;
+  document.getElementById('ov-pause').classList.remove('show');
+  last = performance.now();
+  sfx('confirm');
+}
+
+/* ══════════════════════════ MAIN LOOP ══════════════════════════ */
+let last = 0, acc = 0;
+function loop(t) {
+  requestAnimationFrame(loop);
+  const now = t || performance.now();
+  let dt = now - last; last = now;
+  if (dt > 100) dt = 100;
+  acc += dt;
+  const STEP = 1000 / 60;
+  let steps = 0;
+  while (acc >= STEP && steps < 4) {
+    update();
+    acc -= STEP; steps++;
+  }
+  render();
+}
+function update() {
+  frames++;
+  // particles always animate
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    if (p.type === 'dust') p.vy *= 0.9; else p.vy += 0.05;
+    p.life--;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  if (comboPop.timer > 0) comboPop.timer--;
+  if (koPop.timer > 0) koPop.timer--;
+  if (shake > 0) shake *= 0.88;
+  if (hitstop > 0) { hitstop--; return; }
+
+  if (paused) return;
+
+  if (phase !== 'fight') return;
+
+  // timer
+  if (fighters.every(f => f.stocks > 0)) {
+    matchTimer--;
+    if (matchTimer <= 0 && !suddenDone) { matchTimer = 0; suddenDone = true; suddenDeath(); }
+  }
+
+  // AI
+  if (mode === 'ai' && fighters[1].brain) {
+    fighters[1].brain.update();
+  }
+
+  // collect player inputs
+  collectInputs();
+
+  for (const f of fighters) f.update();
+
+  renderHUD();
+}
+
+function suddenDeath() {
+  for (const f of fighters) { if (f.stocks > 0) f.dmg = Math.max(f.dmg, 199); }
+  koPop = { text: 'SUDDEN DEATH!', timer: 100 };
+}
+
+function render() {
+  ctx.save();
+  // screen shake
+  if (shake > 0.5) {
+    ctx.translate((Math.random()-0.5)*shake, (Math.random()-0.5)*shake);
+  }
+  drawBackground(frames);
+  drawStage();
+  if (phase === 'fight' || phase === 'victory') {
+    for (const f of fighters) drawFighter(f);
+  }
+  drawParticles();
+  ctx.restore();
+}
+
+/* ══════════════════════════ INIT ══════════════════════════ */
+function init() {
+  canvas = document.getElementById('game');
+  ctx = canvas.getContext('2d');
+  initStars();
+
+  // ensure fonts ready
+  document.getElementById('btn-1p').addEventListener('click', () => { mode = 'ai'; sfx('confirm'); startSelect(); });
+  document.getElementById('btn-2p').addEventListener('click', () => { mode = '2p'; sfx('confirm'); startSelect(); });
+  document.getElementById('btn-rematch').addEventListener('click', rematch);
+  document.getElementById('btn-menu').addEventListener('click', () => { location.reload(); });
+  document.getElementById('btn-resume').addEventListener('click', resume);
+  document.getElementById('btn-quit').addEventListener('click', () => { location.reload(); });
+
+  // quiet first render behind title
+  fighters = [ new Fighter(0, 1), new Fighter(1, 2) ];
+  fighters[0].x = 300; fighters[1].x = 660;
+  fighters[0].y = 420; fighters[1].y = 420;
+  fighters.forEach(f => f.invuln = 0);
+
+  last = performance.now();
+  requestAnimationFrame(loop);
+}
+init();
+</script>
+</body>
+</html>

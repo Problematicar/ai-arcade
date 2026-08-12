@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CritterClash</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #1a0011;
+  color: #ffb6d9;
+  font-family: 'Segoe UI', 'Arial', sans-serif;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+#game {
+  width: min(100vw, 650px);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #1a0011;
+  position: relative;
+}
+#header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, #2d0022, #1a0011);
+  border-bottom: 1px solid #ff66b233;
+  flex-shrink: 0;
+}
+#header .title {
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: #ff66b2;
+  text-shadow: 0 0 20px #ff66b266;
+  letter-spacing: 0.05em;
+}
+#header .stats { display: flex; gap: 16px; font-size: 0.75rem; color: #ffb6d9; }
+#header .stats span { display: flex; align-items: center; gap: 4px; }
+canvas {
+  flex: 1;
+  width: 100%;
+  display: block;
+  touch-action: none;
+}
+#footer {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px;
+  background: #2d0022;
+  border-top: 1px solid #ff66b233;
+  flex-shrink: 0;
+}
+#footer button {
+  background: #ff66b233;
+  border: 1px solid #ff66b255;
+  color: #ffb6d9;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  font-family: inherit;
+}
+#footer button:hover { background: #ff66b255; transform: scale(1.05); }
+#footer button:active { transform: scale(0.95); }
+#toast {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 0 30px #ff66b2, 0 0 60px #ff66b2;
+  opacity: 0;
+  transition: opacity 0.3s, transform 0.3s;
+  z-index: 10;
+  text-align: center;
+}
+#toast.show { opacity: 1; transform: translate(-50%, -60%); }
+#shop-overlay {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background: rgba(26,0,17,0.92);
+  z-index: 20;
+  flex-direction: column;
+  padding: 20px;
+  overflow-y: auto;
+}
+#shop-overlay.open { display: flex; }
+#shop-overlay h2 {
+  color: #ff66b2;
+  text-align: center;
+  font-size: 1.2rem;
+  margin-bottom: 16px;
+  text-shadow: 0 0 20px #ff66b266;
+}
+.shop-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  margin-bottom: 8px;
+  border: 1px solid #ff66b233;
+  border-radius: 12px;
+  background: #2d0022;
+  transition: border-color 0.2s;
+}
+.shop-item.owned { border-color: #4ade80; opacity: 0.6; }
+.shop-item .info { flex: 1; }
+.shop-item .name { font-size: 0.85rem; color: #fff; font-weight: bold; }
+.shop-item .desc { font-size: 0.7rem; color: #ffb6d999; margin-top: 2px; }
+.shop-item .buy-btn {
+  background: #ff66b255;
+  border: none;
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+.shop-item .buy-btn:hover { background: #ff66b2; }
+.shop-item .buy-btn:disabled { opacity: 0.3; cursor: default; }
+#shop-close {
+  position: sticky;
+  bottom: 0;
+  margin-top: 12px;
+  background: #ff66b255;
+  border: 1px solid #ff66b2;
+  color: #fff;
+  padding: 10px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: center;
+}
+#shop-close:hover { background: #ff66b2; }
+
+#float-critters {
+  position: absolute; inset: 0; pointer-events: none; z-index: 2; overflow: hidden;
+}
+.float-critter {
+  position: absolute; font-size: 1.3rem; opacity: 0.7;
+  transition: none; pointer-events: auto; will-change: transform;
+  cursor: default;
+}
+#critter-tooltip {
+  position: fixed; pointer-events: none; z-index: 100;
+  background: rgba(0,0,0,0.85); color: #ffb3d9;
+  padding: 3px 8px; border-radius: 6px;
+  font-size: 0.75rem; white-space: nowrap;
+  display: none;
+}
+.floating-text {
+  position: absolute;
+  pointer-events: none;
+  font-weight: bold;
+  font-size: 0.8rem;
+  color: #4ade80;
+  text-shadow: 0 0 10px #4ade8066;
+  animation: floatUp 1s forwards;
+  z-index: 8;
+}
+@keyframes floatUp {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-40px); }
+}
+</style>
+</head>
+<body>
+<div id="game">
+  <div id="header">
+    <div class="title">💗 CritterClash</div>
+    <div class="stats">
+      <span>🪙 <b id="coin-count">0</b></span>
+      <span>💎 <b id="bead-count">20</b></span>
+      <span>🎀 <b id="critter-count">0</b></span>
+    </div>
+  </div>
+  <canvas id="board"></canvas>
+  <div id="float-critters"></div>
+  <div id="critter-tooltip"></div>
+  <div id="critter-tooltip"></div>
+  <div id="toast"></div>
+  <div id="shop-overlay">
+    <h2>🛍️ Upgrade Shop</h2>
+    <div id="shop-list"></div>
+    <div id="shop-close">✕ Close Shop</div>
+  </div>
+  <div id="footer">
+    <button onclick="game.dropBead()">💎 Drop</button>
+    <button id="shop-btn">🛍️ Shop</button>
+    <button onclick="game.autoToggle()">⏯️ Auto</button>
+    <button onclick="game.resetGame()">🔄 Reset</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const coinEl = document.getElementById('coin-count');
+  const beadEl = document.getElementById('bead-count');
+  const critterEl = document.getElementById('critter-count');
+  const toastEl = document.getElementById('toast');
+  const floatContainer = document.getElementById('float-critters');
+  const critterTooltip = document.getElementById('critter-tooltip');
+  const shopList = document.getElementById('shop-list');
+  const shopOverlay = document.getElementById('shop-overlay');
+
+  let W, H, dpr;
+  let coins = parseInt(localStorage.getItem('cc_coins')) || 0;
+  let ownedCritters = JSON.parse(localStorage.getItem('cc_critters')) || [];
+  let upgrades = JSON.parse(localStorage.getItem('cc_upgrades')) || {};
+  let beadCount = Math.min(parseInt(localStorage.getItem('cc_beads')) || 20, maxBeads());
+
+  /* ─── Procedural Critter Generator ─── */
+  const CRITTER_EMOJIS = ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐜','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🐃','🐂','🐄','🐎','🐖','🐏','🐑','🦙','🐐','🦌','🐕','🐩','🐈','🐓','🦃','🦚','🦜','🦢','🦩','🐇','🦝','🦡','🐁','🐀','🐿️','🦔'];
+  const SYLS = 'ba be bi bo bu ca ce ci co cu da de di do du fa fe fi fo fu ga ge gi go gu ha he hi ho hu ka ke ki ko ku la le li lo lu ma me mi mo mu na ne ni no nu pa pe pi po pu ra re ri ro ru sa se si so su ta te ti to tu va ve vi vo vu wa we wi wo wu ya ye yi yo yu za ze zi zo zu'.split(' ');
+  const ENDINGS = ['y','ie','s','by','sy','ky','zy','bo','mo','pi','chi','kin','bin','let','lin','bee','puff','whisk','tail','bean','bug','wing','fin','pop','lop','nip','bit','dot','zee','bug'];
+  function generateName() {
+    const len = 1 + Math.floor(Math.random() * 2);
+    let n = '';
+    for (let i = 0; i < len; i++) n += SYLS[Math.floor(Math.random() * SYLS.length)];
+    return n.charAt(0).toUpperCase() + n.slice(1) + ENDINGS[Math.floor(Math.random() * ENDINGS.length)];
+  }
+  function generateCritter() {
+    const rarity = Math.random() < 0.6 ? 'common' : Math.random() < 0.75 ? 'uncommon' : 'rare';
+    return { emoji: CRITTER_EMOJIS[Math.floor(Math.random() * CRITTER_EMOJIS.length)], name: generateName(), rarity };
+  }
+
+  const SHOP_ITEMS = [
+    { id: 'autothrow', name: 'Auto-Throw', desc: 'Auto-drops a bead every 2.5s', cost: 50, icon: '⏯️' },
+    { id: 'multibead', name: 'Multi-Bead', desc: 'Drop 3 beads at once', cost: 80, icon: '💎' },
+    { id: 'lucky', name: 'Lucky Charm', desc: '+20% better slot rewards', cost: 120, icon: '🍀' },
+    { id: 'magnet', name: 'Coin Magnet', desc: '25% chance for double coins', cost: 180, icon: '🧲' },
+    { id: 'speed', name: 'Speed Beads', desc: 'Beads fall 30% faster', cost: 100, icon: '⚡' },
+    { id: 'pins', name: 'Pin Galaxy', desc: 'Extra pins for chaos', cost: 70, icon: '✨' },
+    { id: 'infinite', name: 'Infinite Beads', desc: 'Unlimited beads forever', cost: 300, icon: '♾️' },
+    { id: 'wealth', name: 'Wealth Chip', desc: 'Start each session with 50 coins', cost: 200, icon: '👑' },
+  ];
+  const REPEATABLE_UPGRADES = [
+    { id: 'beadVault', name: 'Bead Vault', desc: '+5 max beads per level', baseCost: 60, icon: '🏦', maxLvl: 99 },
+    { id: 'coinAura', name: 'Coin Aura', desc: '+10% coin earnings per level', baseCost: 120, icon: '✨', maxLvl: 99 },
+    { id: 'quickCharge', name: 'Quick Charge', desc: 'Faster bead regen per level', baseCost: 100, icon: '⚡', maxLvl: 10 },
+    { id: 'luckyGleam', name: 'Lucky Gleam', desc: '+2% bonus per level', baseCost: 150, icon: '🍀', maxLvl: 99 },
+    { id: 'magnetize', name: 'Magnetize', desc: '+5% double coin per level', baseCost: 180, icon: '🧲', maxLvl: 99 },
+  ];
+
+  /* ─── Audio ─── */
+  let audioCtx = null;
+  function initA() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+  function tone(freq, dur, type, vol) {
+    try { initA();
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = type||'sine'; o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      g.gain.setValueAtTime(vol||0.05, audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+dur);
+      o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+dur);
+    }catch(e){}
+  }
+  function sfxPop() { tone(600+Math.random()*200, 0.06, 'sine', 0.04); }
+  function sfxBounce() { tone(800+Math.random()*300, 0.02, 'square', 0.008); }
+  function sfxCoin() { tone(880, 0.08, 'sine', 0.04); setTimeout(()=>tone(1100, 0.1, 'sine', 0.04), 80); }
+  function sfxCritter() {
+    tone(660, 0.1, 'sine', 0.05); setTimeout(()=>tone(880, 0.1, 'sine', 0.05), 120);
+    setTimeout(()=>tone(1100, 0.15, 'sine', 0.05), 240); setTimeout(()=>tone(1320, 0.2, 'sine', 0.04), 360);
+  }
+  function sfxUpgrade() {
+    tone(523, 0.1, 'sine', 0.05); setTimeout(()=>tone(659, 0.1, 'sine', 0.05), 100);
+    setTimeout(()=>tone(784, 0.1, 'sine', 0.05), 200); setTimeout(()=>tone(1047, 0.2, 'sine', 0.06), 300);
+  }
+  function sfxBad() { tone(300, 0.12, 'sawtooth', 0.04); setTimeout(()=>tone(250, 0.15, 'sawtooth', 0.03), 120); }
+
+  let ambientNodes = [];
+  function startAmbient() {
+    try {
+      initA();
+      const now = audioCtx.currentTime;
+      const chord = [261.63, 329.63, 392.00, 523.25];
+      chord.forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.linearRampToValueAtTime(freq * 1.01, now + 2);
+        osc.frequency.linearRampToValueAtTime(freq * 0.99, now + 4);
+        osc.frequency.linearRampToValueAtTime(freq, now + 6);
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.012, now + 1);
+        gain.gain.linearRampToValueAtTime(0.008, now + 3);
+        gain.gain.linearRampToValueAtTime(0.012, now + 5);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        ambientNodes.push({ osc, gain });
+      });
+      setInterval(() => {
+        if (!audioCtx) return;
+        const n = audioCtx.currentTime;
+        chord.forEach((freq, i) => {
+          const o = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          o.type = 'sine';
+          const f = freq * (0.98 + Math.random() * 0.04);
+          o.frequency.setValueAtTime(f, n);
+          o.frequency.linearRampToValueAtTime(f * 1.005, n + 3);
+          o.frequency.linearRampToValueAtTime(f * 0.995, n + 6);
+          g.gain.setValueAtTime(0, n);
+          g.gain.linearRampToValueAtTime(0.01, n + 1.5);
+          g.gain.linearRampToValueAtTime(0.007, n + 4);
+          g.gain.linearRampToValueAtTime(0.01, n + 6);
+          g.gain.linearRampToValueAtTime(0, n + 8);
+          o.connect(g);
+          g.connect(audioCtx.destination);
+          o.start(n);
+          o.stop(n + 8);
+        });
+      }, 8000);
+    } catch(e) {}
+  }
+
+  /* ─── Pachinko ─── */
+  let beads = [];
+  let pins = [];
+  let slots = [];
+  let particles = [];
+  let autoActive = false;
+  let autoTimer = null;
+  let regenTimer = null;
+  let floatingCritters = [];
+  let ambientStarted = false;
+  function maxBeads() { return 20 + ((upgrades.beadVault || 0) * 5); }
+  function regenInterval() { return Math.max(0.5, 2 - ((upgrades.quickCharge || 0) * 0.15)); }
+  function luckyBonus() { return 0.2 + ((upgrades.luckyGleam || 0) * 0.02); }
+  function magnetChance() { return 0.25 + ((upgrades.magnetize || 0) * 0.05); }
+  function coinMultiplier() { return 1 + ((upgrades.coinAura || 0) * 0.1); }
+
+  const GRAVITY = 0.12;
+  const DAMPING = 0.98;
+  const RESTITUTION = 0.35;
+  const BEAD_R = 5;
+
+  function resize() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    dpr = window.devicePixelRatio || 1;
+    W = rect.width;
+    H = canvas.parentElement.clientHeight - 70;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    buildBoard();
+  }
+
+  function buildBoard() {
+    pins = [];
+    const pinR = 3.5;
+    const spacing = 24;
+    const cols = Math.floor((W - 20) / spacing);
+    const offset = (W - cols * spacing) / 2 + spacing / 2;
+    const rows = Math.floor((H - 80) / spacing);
+    for (let r = 0; r < rows; r++) {
+      const n = r % 2 === 0 ? cols : cols - 1;
+      const xOff = r % 2 === 0 ? 0 : spacing / 2;
+      for (let c = 0; c < n; c++) {
+        pins.push({
+          x: offset + c * spacing + xOff, y: 40 + r * spacing, r: pinR,
+          booster: Math.random() < 0.15
+        });
+      }
+    }
+
+    let extraPins = upgrades.pins ? 30 : 0;
+    let attempts = 0;
+    while (extraPins > 0 && attempts < 200) {
+      attempts++;
+      const px = 15 + Math.random() * (W - 30), py = 50 + Math.random() * (H - 100);
+      let overlap = false;
+      for (let p of pins) {
+        if (Math.hypot(px - p.x, py - p.y) < pinR * 4) { overlap = true; break; }
+      }
+      if (!overlap) { pins.push({ x: px, y: py, r: pinR, booster: Math.random() < 0.25 }); extraPins--; }
+    }
+
+    slots = [];
+    const slotCount = 7;
+    const sw = (W - 10) / slotCount;
+    const sy = H - 35;
+    const rewards = [1, 3, 'critter', 5, 'token', 3, 1];
+    for (let i = 0; i < slotCount; i++) {
+      slots.push({ x: 5 + i * sw, w: sw - 1, y: sy, h: 30, reward: rewards[i], label: rewards[i] === 'critter' ? '🎀' : rewards[i] === 'token' ? '⭐' : rewards[i]+'' });
+    }
+  }
+
+  function dropBead() {
+    maybeStartAmbient();
+    initA();
+    if (upgrades.infinite || beadCount > 0) {
+      if (!upgrades.infinite) beadCount--;
+      sfxPop();
+      const count = upgrades.multibead ? 3 : 1;
+      for (let i = 0; i < count; i++) {
+        beads.push({
+          x: W/2 + (Math.random()-0.5)*40,
+          y: 20,
+          vx: (Math.random()-0.5)*1.5,
+          vy: 1 + Math.random(),
+          r: BEAD_R,
+          alive: true,
+          hue: Math.random() * 40 + 280
+        });
+      }
+      save();
+    } else {
+      sfxBad();
+      showToast('💎 Wait for beads to regen!', '#ff66b2');
+    }
+    updateUI();
+  }
+
+  const tipEl = document.getElementById('critter-tooltip');
+  function showCritterTip(el, name) {
+    const r = el.getBoundingClientRect();
+    tipEl.textContent = name;
+    tipEl.style.left = (r.left + r.width / 2) + 'px';
+    tipEl.style.top = (r.top - 22) + 'px';
+    tipEl.style.display = 'block';
+  }
+  function hideCritterTip() { tipEl.style.display = 'none'; }
+  function showToast(msg, color) {
+    toastEl.textContent = msg;
+    toastEl.style.color = color || '#fff';
+    toastEl.classList.remove('show');
+    void toastEl.offsetWidth;
+    toastEl.classList.add('show');
+    clearTimeout(toastEl._t);
+    toastEl._t = setTimeout(() => toastEl.classList.remove('show'), 1500);
+  }
+
+  function spawnFloating(x, y, text, color) {
+    const el = document.createElement('div');
+    el.className = 'floating-text';
+    el.textContent = text;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.color = color || '#4ade80';
+    document.getElementById('game').appendChild(el);
+    setTimeout(() => el.remove(), 1000);
+  }
+
+  function earnCoin(amount) {
+    const lucky = upgrades.lucky && Math.random() < luckyBonus();
+    const magnet = upgrades.magnet && Math.random() < magnetChance();
+    const earned = Math.floor((amount * (magnet ? 2 : 1) + (lucky ? Math.ceil(amount * 0.5) : 0)) * coinMultiplier());
+    coins += earned;
+    sfxCoin();
+    spawnFloating(W/2-20, H/2, '+' + earned + ' 🪙', '#4ade80');
+    updateUI();
+    save();
+  }
+
+  function earnCritter() {
+    let critter = generateCritter();
+    let attempts = 0;
+    while (ownedCritters.some(c => c.name === critter.name) && attempts < 200) {
+      critter = generateCritter();
+      attempts++;
+    }
+    ownedCritters.push(critter);
+    sfxCritter();
+    spawnFloating(W/2, H/2-20, critter.emoji + ' ' + critter.name + ' ★', '#ff66b2');
+    showToast(critter.emoji + ' ' + critter.name + ' joined!', '#ff66b2');
+    syncFloatingCritters();
+    updateUI();
+    save();
+  }
+
+  function earnToken() {
+    earnCoin(8);
+    showToast('⭐ Token! +8 🪙', '#ffd700');
+  }
+
+  function syncFloatingCritters() {
+    const currentNames = floatingCritters.map(f => f.name);
+    ownedCritters.forEach(critter => {
+      if (!currentNames.includes(critter.name)) {
+        const el = document.createElement('span');
+        el.className = 'float-critter';
+        el.textContent = critter.emoji;
+        el.addEventListener('mouseenter', () => showCritterTip(el, critter.name));
+        el.addEventListener('mouseleave', hideCritterTip);
+        el.addEventListener('mouseenter', () => {
+          critterTooltip.textContent = critter.name;
+          critterTooltip.style.display = 'block';
+        });
+        el.addEventListener('mousemove', (e) => {
+          critterTooltip.style.left = (e.clientX + 10) + 'px';
+          critterTooltip.style.top = (e.clientY - 5) + 'px';
+        });
+        el.addEventListener('mouseleave', () => { critterTooltip.style.display = 'none'; });
+        floatContainer.appendChild(el);
+        floatingCritters.push({
+          name: critter.name, el,
+          x: 30 + Math.random() * (W - 60),
+          y: 30 + Math.random() * (H - 60),
+          vx: (Math.random() - 0.5) * 0.5,
+          vy: (Math.random() - 0.5) * 0.5,
+          phase: Math.random() * Math.PI * 2,
+          size: 18 + Math.random() * 6
+        });
+        el.style.fontSize = (critter.rarity === 'rare' ? 26 : critter.rarity === 'uncommon' ? 22 : 18) + 'px';
+      }
+    });
+    const ownedNames = ownedCritters.map(c => c.name);
+    const keep = floatingCritters.filter(f => ownedNames.includes(f.name));
+    floatingCritters.forEach(f => { if (!ownedNames.includes(f.name) && f.el.parentNode) f.el.remove(); });
+    floatingCritters = keep;
+  }
+
+  function updateFloatingCritters() {
+    const w = floatContainer.clientWidth || W;
+    const h = floatContainer.clientHeight || H;
+    for (let f of floatingCritters) {
+      f.phase += 0.02;
+      f.vx += Math.sin(f.phase) * 0.02;
+      f.vy += Math.cos(f.phase + 1) * 0.02;
+      f.vx *= 0.98;
+      f.vy *= 0.98;
+      if (Math.abs(f.vx) > 0.8) f.vx *= 0.9;
+      if (Math.abs(f.vy) > 0.8) f.vy *= 0.9;
+      f.x += f.vx;
+      f.y += f.vy;
+      if (f.x < 10) { f.x = 10; f.vx *= -1; }
+      if (f.x > w - 10) { f.x = w - 10; f.vx *= -1; }
+      if (f.y < 10) { f.y = 10; f.vy *= -1; }
+      if (f.y > h - 10) { f.y = h - 10; f.vy *= -1; }
+      f.el.style.transform = 'translate(' + f.x + 'px,' + f.y + 'px)';
+    }
+  }
+
+  function resetGame() {
+    if (!confirm(`Reset ALL progress?\n\n⚔️ ${coins} coins\n🎀 ${ownedCritters.length} critters\n💎 All upgrades\n\nThis cannot be undone!`)) return;
+    coins = 0;
+    ownedCritters = [];
+    upgrades = {};
+    beadCount = maxBeads();
+    floatContainer.innerHTML = '';
+    floatingCritters = [];
+    localStorage.removeItem('cc_coins');
+    localStorage.removeItem('cc_critters');
+    localStorage.removeItem('cc_upgrades');
+    localStorage.removeItem('cc_beads');
+    shopOverlay.classList.remove('open');
+    buildBoard();
+    syncFloatingCritters();
+    updateUI();
+    showToast('🔄 Reset complete!', '#ff66b2');
+  }
+
+  /* ─── Physics ─── */
+  function updateBeads() {
+    for (let b of beads) {
+      if (!b.alive) continue;
+      b.vy += GRAVITY * (upgrades.speed ? 1.3 : 1);
+      b.vx *= DAMPING;
+      b.x += b.vx;
+      b.y += b.vy;
+
+      b.bounceCount = b.bounceCount || 0;
+      if (b.bounceCount > 100) { b.alive = false; continue; }
+
+      if ((b.x - b.r < 0 || b.x + b.r > W) && b.vx !== 0) {
+        if (b.x - b.r < 0) b.x = b.r; else b.x = W - b.r;
+        if (Math.abs(b.vy) + Math.abs(b.vx) > 0.5) sfxBounce();
+        b.vx *= -RESTITUTION;
+        b.bounceCount++;
+      }
+
+      for (let p of pins) {
+        const dx = b.x - p.x, dy = b.y - p.y, dist = Math.sqrt(dx*dx + dy*dy);
+        const minDist = b.r + p.r;
+        if (dist < minDist && dist > 0.001) {
+          const nx = dx/dist, ny = dy/dist;
+          b.x = p.x + nx * minDist;
+          b.y = p.y + ny * minDist;
+          const dot = b.vx*nx + b.vy*ny;
+          if (dot < 0) {
+            b.vx -= dot * nx * (1+RESTITUTION);
+            b.vy -= dot * ny * (1+RESTITUTION);
+            b.bounceCount++;
+            if (Math.abs(b.vy) + Math.abs(b.vx) > 0.5) {
+              if (p.booster) {
+                b.vy += 1.5;
+                tone(1200, 0.04, 'sine', 0.03);
+              } else {
+                sfxBounce();
+              }
+            }
+          }
+        }
+      }
+
+      for (let s of slots) {
+        if (b.y + b.r > s.y && b.y - b.r < s.y + s.h && b.x > s.x && b.x < s.x + s.w) {
+          b.alive = false;
+          if (s.reward === 'critter') earnCritter();
+          else if (s.reward === 'token') earnToken();
+          else earnCoin(s.reward);
+          break;
+        }
+      }
+
+      if (b.y > H + 20) b.alive = false;
+    }
+    beads = beads.filter(b => b.alive);
+  }
+
+  /* ─── Render ─── */
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Background gradient
+    const grad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, W*0.7);
+    grad.addColorStop(0, '#2d0022');
+    grad.addColorStop(1, '#1a0011');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Soft glow
+    ctx.fillStyle = 'rgba(255,102,178,0.03)';
+    ctx.fillRect(0, 0, W, H);
+
+    // Pins
+    for (let p of pins) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      if (p.booster) {
+        ctx.fillStyle = '#ffd70066';
+        ctx.fill();
+        ctx.strokeStyle = '#ffd700aa';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r + 2, 0, Math.PI * 2);
+        ctx.strokeStyle = '#ffd70044';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = '#ff66b244';
+        ctx.fill();
+        ctx.strokeStyle = '#ff66b255';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+    }
+
+    // Slots
+    for (let s of slots) {
+      ctx.fillStyle = '#ff66b115';
+      ctx.strokeStyle = '#ff66b233';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(s.x, s.y, s.w, s.h, 3);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#ffb6d988';
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(s.label, s.x + s.w/2, s.y + s.h/2);
+    }
+
+    // Beads
+    for (let b of beads) {
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+      const grd = ctx.createRadialGradient(b.x-1.5, b.y-1.5, 0, b.x, b.y, b.r);
+      grd.addColorStop(0, '#ffb6d9');
+      grd.addColorStop(0.5, '#ff66b2');
+      grd.addColorStop(1, '#cc3388');
+      ctx.fillStyle = grd;
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff22';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    }
+
+    // Slot glow hints
+    for (let s of slots) {
+      if (s.reward === 'critter' || s.reward === 'token') {
+        ctx.fillStyle = 'rgba(255,102,178,' + (0.05 + Math.sin(Date.now()/500)*0.03) + ')';
+        ctx.beginPath();
+        ctx.roundRect(s.x, s.y, s.w, s.h, 3);
+        ctx.fill();
+      }
+    }
+  }
+
+  /* ─── UI ─── */
+  function updateUI() {
+    coinEl.textContent = coins;
+    beadEl.textContent = upgrades.infinite ? '∞' : beadCount;
+    critterEl.textContent = ownedCritters.length;
+  }
+
+  function save() {
+    localStorage.setItem('cc_coins', coins);
+    localStorage.setItem('cc_critters', JSON.stringify(ownedCritters));
+    localStorage.setItem('cc_upgrades', JSON.stringify(upgrades));
+    localStorage.setItem('cc_beads', beadCount);
+  }
+
+  function autoToggle() {
+    initA();
+    autoActive = !autoActive;
+    if (autoActive) {
+      if (!upgrades.autothrow) { autoActive = false; showToast('Buy Auto-Throw first!', '#ff6666'); return; }
+      autoTimer = setInterval(dropBead, 2500);
+      showToast('⏯️ Auto on', '#4ade80');
+    } else {
+      clearInterval(autoTimer);
+      showToast('⏯️ Auto off', '#ffb6d9');
+    }
+  }
+
+  /* ─── Shop ─── */
+  function openShop() {
+    shopOverlay.classList.add('open');
+    shopList.innerHTML = '';
+    // One-time items
+    SHOP_ITEMS.forEach(item => {
+      const owned = upgrades[item.id];
+      const div = document.createElement('div');
+      div.className = 'shop-item' + (owned ? ' owned' : '');
+      div.innerHTML = `
+        <div class="info">
+          <div class="name">${item.icon} ${item.name}</div>
+          <div class="desc">${item.desc}</div>
+        </div>
+        <button class="buy-btn" ${owned||coins<item.cost?'disabled':''}>
+          ${owned ? '✓ Owned' : '🪙 '+item.cost}
+        </button>
+      `;
+      const btn = div.querySelector('.buy-btn');
+      btn.addEventListener('click', () => {
+        if (owned || coins < item.cost) return;
+        coins -= item.cost;
+        upgrades[item.id] = true;
+        sfxUpgrade();
+        save();
+        updateUI();
+        if (item.id === 'pins') buildBoard();
+        if (item.id === 'wealth') coins += 50;
+        openShop();
+        showToast('✓ ' + item.name + ' unlocked!', '#4ade80');
+      });
+      shopList.appendChild(div);
+    });
+    // Divider
+    const divider = document.createElement('div');
+    divider.style.cssText = 'text-align:center;color:#ff66b255;font-size:0.75rem;padding:12px 0 8px;border-top:1px solid #ff66b233;margin-top:8px;letter-spacing:0.15em;';
+    divider.textContent = '— PERMANENT UPGRADES —';
+    shopList.appendChild(divider);
+    // Repeatable upgrades
+    REPEATABLE_UPGRADES.forEach(item => {
+      const lvl = upgrades[item.id] || 0;
+      const atMax = lvl >= item.maxLvl;
+      const cost = Math.floor(item.baseCost * (lvl + 1));
+      const div = document.createElement('div');
+      div.className = 'shop-item' + (atMax ? ' owned' : '');
+      div.innerHTML = `
+        <div class="info">
+          <div class="name">${item.icon} ${item.name} <span style="color:#ffb6d988;font-size:0.7rem;">Lv.${lvl}</span></div>
+          <div class="desc">${item.desc}</div>
+        </div>
+        <button class="buy-btn" ${atMax||coins<cost?'disabled':''}>
+          ${atMax ? 'MAX' : '🪙 '+cost}
+        </button>
+      `;
+      const btn = div.querySelector('.buy-btn');
+      btn.addEventListener('click', () => {
+        if (atMax || coins < cost) return;
+        coins -= cost;
+        upgrades[item.id] = (lvl || 0) + 1;
+        sfxUpgrade();
+        save();
+        updateUI();
+        if (item.id === 'quickCharge') { clearTimeout(regenTimer); scheduleRegen(); }
+        openShop();
+        showToast(item.icon + ' ' + item.name + ' Lv.' + (lvl + 1) + '!', '#4ade80');
+      });
+      shopList.appendChild(div);
+    });
+  }
+
+  document.getElementById('shop-btn').addEventListener('click', () => { maybeStartAmbient(); openShop(); });
+  document.getElementById('shop-close').addEventListener('click', () => shopOverlay.classList.remove('open'));
+
+  /* ─── Game Loop ─── */
+  function loop() {
+    updateBeads();
+    updateFloatingCritters();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  /* ─── Init ─── */
+  function init() {
+    // Migrate old format critters (array of strings) to objects
+    if (ownedCritters.length > 0 && typeof ownedCritters[0] === 'string') {
+      ownedCritters = ownedCritters.map(name => {
+        const e = CRITTER_EMOJIS[Math.floor(Math.random() * CRITTER_EMOJIS.length)];
+        return { emoji: e, name, rarity: Math.random() < 0.6 ? 'common' : Math.random() < 0.8 ? 'uncommon' : 'rare' };
+      });
+      localStorage.setItem('cc_critters', JSON.stringify(ownedCritters));
+    }
+    // Fix broken emoji from old split('') bug
+    let refixed = false;
+    ownedCritters = ownedCritters.map(c => {
+      if (typeof c.emoji !== 'string' || c.emoji.length < 2) {
+        refixed = true;
+        return { ...c, emoji: CRITTER_EMOJIS[Math.floor(Math.random() * CRITTER_EMOJIS.length)] };
+      }
+      return c;
+    });
+    if (refixed) localStorage.setItem('cc_critters', JSON.stringify(ownedCritters));
+    if (upgrades.wealth) coins += 50;
+    updateUI();
+    resize();
+    syncFloatingCritters();
+    loop();
+    function scheduleRegen() {
+      regenTimer = setTimeout(function regenTick() {
+        if (!upgrades.infinite && beadCount < maxBeads()) { beadCount++; save(); updateUI(); }
+        regenTimer = setTimeout(regenTick, regenInterval() * 1000);
+      }, regenInterval() * 1000);
+    }
+    scheduleRegen();
+  }
+
+  window.addEventListener('resize', resize);
+  function maybeStartAmbient() { if (!ambientStarted) { ambientStarted = true; startAmbient(); } }
+  canvas.addEventListener('click', (e) => {
+    maybeStartAmbient();
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    if (y < H - 40 && y > 10) dropBead();
+  });
+  canvas.addEventListener('touchstart', (e) => {
+    maybeStartAmbient();
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    if (touch.clientY - rect.top < H - 40 && touch.clientY - rect.top > 10) dropBead();
+  });
+
+  // Expose for inline onclick
+  window.game = { dropBead, autoToggle, resetGame };
+
+  // Wealth start
+  init();
+
+  // roundRect polyfill for canvas
+  if (!CanvasRenderingContext2D.prototype.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+      if (r > w/2) r = w/2;
+      if (r > h/2) r = h/2;
+      this.moveTo(x + r, y);
+      this.lineTo(x + w - r, y);
+      this.quadraticCurveTo(x + w, y, x + w, y + r);
+      this.lineTo(x + w, y + h - r);
+      this.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      this.lineTo(x + r, y + h);
+      this.quadraticCurveTo(x, y + h, x, y + h - r);
+      this.lineTo(x, y + r);
+      this.quadraticCurveTo(x, y, x + r, y);
+    };
+  }
+})();
+</script>
+</body>
+</html>

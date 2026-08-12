@@ -1,0 +1,9 @@
+{
+  "id": "rps-1vai",
+  "title": "RPS: 1vAI",
+  "emoji": "✂️",
+  "description": "Rock Paper Scissors vs a thinking AI. Best of 1? Best of 100? The scoreboard knows.",
+  "controls": "Click ✊/✋/✌️ to throw. AI adapts? Or just lucky?",
+  "color": "#bb66ff",
+  "bgColor": "#1a0033"
+}

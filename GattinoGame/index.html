@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>Gattino — Cozy Co-op</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="game-wrap">
+    <canvas id="game" width="960" height="600"></canvas>
+
+    <!-- HUD overlay -->
+    <div id="hud">
+      <div class="hud-item">
+        <span class="dot p1"></span>
+        <span id="p1-fish">0/0</span>
+      </div>
+      <div class="hud-item title">Gattino</div>
+      <div class="hud-item">
+        <span id="p2-fish">0/0</span>
+        <span class="dot p2"></span>
+      </div>
+    </div>
+
+    <!-- Message banner -->
+    <div id="msg"></div>
+
+    <!-- Title / overlay screen -->
+    <div id="overlay" class="overlay show">
+      <div class="card">
+        <h1 id="ov-title">Gattino</h1>
+        <p id="ov-sub">A cozy co-op puzzle for two kittens.</p>
+
+        <div class="controls">
+          <div class="ctrl">
+            <span class="dot p1"></span>
+            <strong>Player 1 — Mouse</strong>
+            <small>Kitten chases your cursor. <b>Only P1 can press buttons</b> — park the cursor on one to hold it.</small>
+          </div>
+          <div class="ctrl">
+            <span class="dot p2"></span>
+            <strong>Player 2 — WASD / Arrows</strong>
+            <small>Move and <b>push boxes</b> onto buttons to hold them down permanently.</small>
+          </div>
+        </div>
+
+        <p class="hint" id="ov-hint">Collect all the fish, then both kittens sit on their own food bowl (marked 1 &amp; 2). Boxes hold buttons down — players can't.</p>
+
+        <button id="ov-btn">Play</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

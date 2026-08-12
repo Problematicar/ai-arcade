@@ -1,0 +1,99 @@
+{
+  "id": "incrementall",
+  "title": "IncrementALL",
+  "emoji": "⬆️",
+  "description": "An ever-expanding incremental game — click with combo streaks, buy generators (10 tiers), unlock upgrades (28 total), auto-clickers, ascend (100× max) for multipliers, transcend for global multipliers, complete 7 challenges for permanent bonuses, and buy permanent perks that persist forever. Beyond 1Qa points: new milestones, 42 achievements, and infinite growth.",
+  "controls": "Click the circle to earn points (combo builds) | Buy qty: ×1/×10/×100/MAX | 4 main tabs: Gen/Upg/Perks/Burst, top-right: 🏁Chal/📊Stats | Keys: 1-4 tabs, 5 chal, 6 stats, Space click, B ascend, T transcend, A auto-buy, E export, R reset | Auto-clickers trigger automatically | Ascend for multipliers up to 100× | Transcend after max ascension | 7 challenges unlocked at 10 ascensions",
+  "color": "#dd4466",
+  "bgColor": "#1a0a0e",
+
+  "_version": "2.0.0",
+  "_genre": "idle / incremental",
+  "_goal": "Reach 1,000,000,000,000,000 (1Qa) total points. Continue infinitely beyond with transcendence and challenges.",
+
+  "_resources": [
+    {
+      "id": "points",
+      "name": "Points",
+      "description": "Main currency. Earned by clicking and from generators. Carries across ascensions partially (base resets)."
+    },
+    {
+      "id": "totalPoints",
+      "name": "Total Points",
+      "description": "Lifetime points earned (never resets). Used for ascension gain calculation and victory condition."
+    }
+  ],
+
+  "_generators": [
+    { "id": "ac",   "name": "Auto-Clicker",    "emoji": "🖱️", "basePPS": 2,      "baseCost": 15,     "costScale": 1.15, "tier": 1 },
+    { "id": "bot",  "name": "Tiny Bot",        "emoji": "🤖", "basePPS": 8,      "baseCost": 100,    "costScale": 1.15, "tier": 2 },
+    { "id": "spr",  "name": "Data Sprite",     "emoji": "💿", "basePPS": 32,     "baseCost": 500,    "costScale": 1.15, "tier": 3 },
+    { "id": "qnd",  "name": "Quantum Node",    "emoji": "🔮", "basePPS": 128,    "baseCost": 2500,   "costScale": 1.15, "tier": 4 },
+    { "id": "nex",  "name": "Nexus Core",      "emoji": "⚛️", "basePPS": 512,    "baseCost": 12500,  "costScale": 1.15, "tier": 5 },
+    { "id": "str",  "name": "Star Engine",     "emoji": "⭐", "basePPS": 2048,   "baseCost": 62500,  "costScale": 1.15, "tier": 6 },
+    { "id": "wea",  "name": "Reality Weave",   "emoji": "🌀", "basePPS": 8192,   "baseCost": 312500, "costScale": 1.15, "tier": 7 },
+    { "id": "loop", "name": "Cosmic Looper",   "emoji": "♾️", "basePPS": 32768,  "baseCost": 1562500,"costScale": 1.15, "tier": 8 },
+    { "id": "omni", "name": "Omni Matrix",     "emoji": "🌌", "basePPS": 131072, "baseCost": 7812500,"costScale": 1.15, "tier": 9 },
+    { "id": "void", "name": "Void Resonator",  "emoji": "🕳️", "basePPS": 524288, "baseCost": 39e6,   "costScale": 1.15, "tier": 10 }
+  ],
+
+  "_upgrades": {
+    "total": 28,
+    "click": [
+      { "id": "click1_8", "name": "Click Power I-VIII",  "effect": "+1 to +500 per click", "cost": "25 to 250M" },
+      { "id": "click9",   "name": "Click Power IX",      "effect": "+1000 per click",      "cost": "2.5B" },
+      { "id": "click10",  "name": "Click Power X",       "effect": "+5000 per click",      "cost": "25B" }
+    ],
+    "efficiency": [
+      { "id": "eff1_7", "name": "Efficiency I-VII", "effect": "×1.5 to ×50 production", "cost": "50 to 50M" },
+      { "id": "eff8",   "name": "Efficiency VIII",  "effect": "×100 production",        "cost": "500M" },
+      { "id": "eff9",   "name": "Efficiency IX",    "effect": "×500 production",        "cost": "10B" }
+    ],
+    "burst": [
+      { "id": "burst1_3", "name": "Burst Amplifier I-III",  "effect": "×1.5 to ×3 ascension mult",  "cost": "1M to 25M" },
+      { "id": "burst4",   "name": "Burst Amplifier IV",     "effect": "×5 ascension mult",          "cost": "250M" }
+    ],
+    "auto": [
+      { "id": "auto1_3", "name": "Auto-Click I-III", "effect": "+0.5 to +2 auto clicks/s", "cost": "500 to 50K" },
+      { "id": "auto4",   "name": "Auto-Click IV",    "effect": "+5 auto clicks/s",         "cost": "500M" }
+    ]
+  },
+
+  "_ascension": {
+    "formula": "gain% = floor(sqrt(totalPoints / 1000)) × burstPowerUpgrades",
+    "maxAscensions": 100,
+    "resets": "points, generators, upgrades, clicks",
+    "persists": "totalPoints, burstMult, achievements, ascensionCount, perks"
+  },
+
+  "_transcendence": {
+    "description": "Second prestige layer unlocked after 100 ascensions. Resets everything (including ascensions) for +100% global multiplier per level.",
+    "unlock": "100 ascensions",
+    "reward": "+100% global multiplier (×1 per level)"
+  },
+
+  "_challenges": [
+    { "id": "ch_click",   "name": "Clickomania",     "desc": "Only clicks earn points (no generator income)",       "goal": "1M pts",   "reward": "+2% global" },
+    { "id": "ch_poor",    "name": "Poverty",         "desc": "All costs are 10x higher",                             "goal": "500K pts", "reward": "+3% global" },
+    { "id": "ch_speed",   "name": "Speed Run",       "desc": "Generator income decays 50% per tier",                 "goal": "1M pts",   "reward": "+4% global" },
+    { "id": "ch_ascend",  "name": "Ascension Rush",  "desc": "Must ascend within 60 seconds or lose",                "goal": "ascend",   "reward": "+5% global" },
+    { "id": "ch_perk",    "name": "Perkless",        "desc": "No perks available this run",                          "goal": "100K pts", "reward": "+10% global" },
+    { "id": "ch_noup",    "name": "No Upgrades",     "desc": "Cannot buy any upgrades",                              "goal": "200K pts", "reward": "+6% global" },
+    { "id": "ch_fade",    "name": "Fading Memory",   "desc": "Every 10s generators lose 1 level",                    "goal": "500K pts", "reward": "+6% global" }
+  ],
+
+  "_achievements": {
+    "total": 42,
+    "categories": "clicks, combos, generators, upgrades, ascensions, perks, transcendence, total points"
+  },
+
+  "_architecture": {
+    "renderLoop": "requestAnimationFrame with delta-time calculation. Tick rate capped at 50ms minimum delta.",
+    "stateSchema": "JSON in localStorage key 'incrementall_save'. Versioned (v2) with backward compat.",
+    "autoSave": "Every 15 seconds via setInterval.",
+    "offlineProgress": "On load, if >5s elapsed since last save, PPS × elapsed is awarded as offline points.",
+    "victory": "Modal overlay when totalPoints >= 1,000,000. Option to continue playing.",
+    "keyboardShortcuts": "1-6 tabs, Space click, B ascend, T transcend, A auto-buy, E export, R reset",
+    "numberFormat": "Suffixes: K, M, B, T, Qa, Qi, Sx, Sp, Oc (up to 1e27+)"
+  }
+}

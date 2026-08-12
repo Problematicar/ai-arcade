@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI ARCADE</title>
+  <link rel="stylesheet" href="arcade.css">
+</head>
+<body>
+  <div id="arcade">
+    <div id="splash">
+      <div class="scanlines"></div>
+      <div class="vignette"></div>
+      <div class="splash-title">AI ARCADE</div>
+      <div class="splash-subtitle">● Game Select ●</div>
+      <div class="splash-prompt">▶ PRESS ANY KEY OR CLICK TO START ◀</div>
+    </div>
+
+    <div id="floor">
+      <div id="floor-bg"></div>
+      <div id="cabinet-container"></div>
+      <div id="hud">
+        <span id="game-count">0 / 0</span>
+        <span class="highlight">← → to Select</span>
+        <span class="highlight">ENTER to Play</span>
+      </div>
+    </div>
+
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+  </div>
+
+  <script src="games-data.js"></script>
+  <script src="arcade.js"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "title": "Sil Fighter",
+  "emoji": "🥊",
+  "description": "2D platform fighter in the style of Smash Bros — and every character is Sil, the older brother of Mees! Pummel your rival off the stage with jabs, tackles, and uppercuts in 2-player local battles or vs a sneaky AI.",
+  "controls": "P1: A/D move · W jump · F attack · G special · S shield | P2: ←/→ move · ↑ jump · L attack · K special · ↓ shield | Menus: WASD/Arrows + F/L/Enter to confirm",
+  "color": "#e02838",
+  "bgColor": "#100a18"
+}

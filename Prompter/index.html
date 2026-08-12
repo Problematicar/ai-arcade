@@ -1,0 +1,2327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prompter</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; background: #002211; color: #b0e8d0; font-family: 'Segoe UI', system-ui, sans-serif; user-select: none; }
+
+#game {
+  width: 100vw; height: 100vh;
+  display: flex; flex-direction: column;
+  position: relative; overflow: hidden;
+}
+
+/* ─── Header ─── */
+#header {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 8px 16px; flex-shrink: 0;
+  background: rgba(0,204,136,0.06);
+  border-bottom: 1px solid rgba(0,204,136,0.15);
+  z-index: 10;
+}
+#header h1 { font-size: 1rem; }
+.hdr-item { font-size: 0.75rem; opacity: 0.7; }
+.hdr-item b { color: #00cc88; opacity: 1; }
+.hdr-item .val { color: #00cc88; font-weight: bold; font-size: 0.9rem; }
+
+/* ─── Scene ─── */
+#scene {
+  flex: 1; position: relative; overflow: hidden;
+  background: linear-gradient(180deg, #0a0a2e 0%, #001a0a 100%);
+  min-height: 0;
+}
+#scene-bg { position: absolute; inset: 0; transition: background 0.8s; pointer-events: none; }
+.star { position: absolute; width: 2px; height: 2px; background: #fff; border-radius: 50%; opacity: 0.4; pointer-events: none; }
+#ground {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 40px;
+  background: linear-gradient(180deg, #1a4a2a, #0d2a15);
+  border-top: 2px solid rgba(0,204,136,0.2); pointer-events: none;
+}
+#ground-inner { position: absolute; top: 2px; left: 0; right: 0; height: 4px; background: rgba(0,204,136,0.06); }
+
+#engine-core {
+  position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
+  width: 48px; height: 48px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,204,136,0.25), rgba(0,204,136,0.05));
+  border: 2px solid rgba(0,204,136,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.6rem; pointer-events: none; z-index: 2;
+  animation: enginePulse 2s ease-in-out infinite;
+  transition: 0.3s;
+}
+@keyframes enginePulse { 0%,100%{box-shadow:0 0 10px rgba(0,204,136,0.1)} 50%{box-shadow:0 0 25px rgba(0,204,136,0.25)} }
+#engine-label {
+  position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+  font-size: 0.5rem; opacity: 0.25; text-transform: uppercase; letter-spacing: 1px;
+  pointer-events: none; white-space: nowrap;
+}
+
+/* ─── Scene Elements ─── */
+.scene-el {
+  position: absolute; pointer-events: none; transition: opacity 0.4s;
+}
+#player-el { font-size: 2rem; z-index: 3; }
+#player-el .equip-slot { position: absolute; font-size: 0.85rem; pointer-events: none; transition: none; }
+#player-el.jump { animation: playerJump 0.4s ease-out; }
+#player-el.djump { animation: playerDJump 0.6s ease-out; }
+#player-el.dash { animation: playerDash 0.3s ease-out; }
+@keyframes playerJump { 0%{transform:translateY(0)} 40%{transform:translateY(-30px)} 100%{transform:translateY(0)} }
+@keyframes playerDJump { 0%{transform:translateY(0)} 25%{transform:translateY(-20px)} 50%{transform:translateY(-40px)} 75%{transform:translateY(-20px)} 100%{transform:translateY(0)} }
+@keyframes playerDash { 0%{transform:translateX(0)} 100%{transform:translateX(60px)} }
+.enemy-el { font-size: 1.4rem; z-index: 2; }
+.powerup-el { font-size: 1.2rem; z-index: 2; animation: floatItem 1.5s ease-in-out infinite; }
+@keyframes floatItem { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+.coin-el { font-size: 1rem; z-index: 1; }
+.cloud-el { font-size: 1.2rem; z-index: 0; opacity: 0.3; animation: cloudDrift 20s linear infinite; }
+@keyframes cloudDrift { 0%{transform:translateX(0)} 100%{transform:translateX(200px)} }
+.tree-el { font-size: 1.6rem; z-index: 1; }
+.weapon-el { font-size: 0.9rem; position: absolute; z-index: 3; }
+.boss-el { font-size: 2.5rem; z-index: 2; animation: bossPulse 1s ease-in-out infinite; }
+@keyframes bossPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
+.particle-el {
+  position: absolute; width: 3px; height: 3px; border-radius: 50%;
+  pointer-events: none; z-index: 1; opacity: 0.5;
+}
+.music-el { font-size: 1rem; z-index: 1; opacity: 0.3; animation: musicFloat 3s ease-in-out infinite; }
+@keyframes musicFloat { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-10px) rotate(10deg)} }
+.platform-el {
+  position: absolute; height: 10px; border-radius: 3px; z-index: 1; pointer-events: none;
+  background: linear-gradient(180deg, #3a6a3a, #2a4a2a);
+  border: 1px solid rgba(0,204,136,0.15);
+}
+#scene-score {
+  position: absolute; top: 10px; left: 12px; font-size: 0.7rem; opacity: 0; z-index: 5;
+  transition: opacity 0.4s; color: #00cc88; pointer-events: none;
+}
+#scene-health {
+  position: absolute; top: 10px; right: 12px; width: 100px; height: 10px; z-index: 5;
+  opacity: 0; transition: opacity 0.4s;
+  background: rgba(255,0,0,0.15); border-radius: 5px; overflow: hidden;
+  pointer-events: none;
+}
+#scene-health-bar { height: 100%; width: 100%; background: linear-gradient(90deg, #ff4444, #ff6644); border-radius: 5px; transition: width 0.3s; }
+#scene-level {
+  position: absolute; top: 28px; left: 12px; font-size: 0.6rem; opacity: 0; z-index: 5;
+  transition: opacity 0.4s; color: rgba(0,204,136,0.4); pointer-events: none;
+}
+.water-el {
+  position: absolute; bottom: 40px; left: 0; right: 0; height: 20px; z-index: 1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(0,100,150,0.3), rgba(0,60,100,0.2));
+  animation: waterWave 3s ease-in-out infinite;
+}
+@keyframes waterWave { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+
+/* ─── Bugs ─── */
+.bug {
+  position: absolute; font-size: 1.5rem; cursor: pointer; z-index: 10;
+  transition: transform 0.05s; pointer-events: auto;
+  animation: bugSpawn 0.3s ease-out;
+}
+@keyframes bugSpawn { 0%{transform:scale(0);opacity:0} 100%{transform:scale(1);opacity:1} }
+.bug.squashed {
+  pointer-events: none; animation: bugSquash 0.25s ease-out forwards;
+}
+@keyframes bugSquash { 0%{transform:scale(1);opacity:1} 50%{transform:scale(1.8);opacity:0.5} 100%{transform:scale(0);opacity:0} }
+.bug-hit {
+  position: absolute; font-size: 1.2rem; pointer-events: none; z-index: 11;
+  animation: hitFloat 0.6s ease-out forwards;
+}
+@keyframes hitFloat { 0%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-30px) scale(0.5)} }
+.bug.armored { box-shadow: 0 0 0 2px rgba(255,200,50,0.4), 0 0 8px rgba(255,200,50,0.15); }
+.bug.fast { filter: drop-shadow(0 0 4px rgba(0,200,255,0.3)); }
+.bug.stealth { opacity: 0.45; }
+.bug.hit-armor { animation: armorFlash 0.15s ease-out; }
+@keyframes armorFlash { 0%{transform:scale(1.2);filter:brightness(2)} 100%{transform:scale(1);filter:none} }
+
+/* ─── Shield ─── */
+.shield-el {
+  position: absolute; bottom: 38px; left: 50%; transform: translateX(-50%);
+  width: 100px; height: 100px; border-radius: 50%;
+  border: 2px solid rgba(0,204,255,0.3);
+  background: radial-gradient(circle, rgba(0,204,255,0.08), transparent);
+  pointer-events: none; z-index: 5;
+  animation: shieldPulse 2s ease-in-out infinite;
+}
+@keyframes shieldPulse { 0%,100%{transform:translateX(-50%) scale(1);opacity:0.6} 50%{transform:translateX(-50%) scale(1.08);opacity:1} }
+
+/* ─── Achievements Panel ─── */
+#achieve-overlay {
+  position: absolute; inset: 0; z-index: 70;
+  background: rgba(0,0,0,0.8); display: none;
+  align-items: center; justify-content: center;
+}
+#achieve-overlay.show { display: flex; }
+#achieve-panel {
+  width: min(380px, 85vw); max-height: 70vh; overflow-y: auto;
+  background: #001a0a; border: 1px solid rgba(0,204,136,0.2);
+  border-radius: 16px; padding: 20px;
+}
+#achieve-panel::-webkit-scrollbar { width: 4px; }
+#achieve-panel::-webkit-scrollbar-track { background: transparent; }
+#achieve-panel::-webkit-scrollbar-thumb { background: rgba(0,204,136,0.2); border-radius: 2px; }
+#achieve-panel h2 { font-size: 1.1rem; color: #00cc88; margin-bottom: 12px; }
+.ach-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 8px; margin-bottom: 4px;
+  background: rgba(0,204,136,0.04); opacity: 0.35;
+}
+.ach-item.unlocked { opacity: 1; background: rgba(0,204,136,0.08); }
+.ach-item .icon { font-size: 1.3rem; }
+.ach-item .info { flex: 1; }
+.ach-item .title { font-size: 0.8rem; color: #b0e8d0; }
+.ach-item .desc { font-size: 0.6rem; opacity: 0.5; }
+.ach-item .date { font-size: 0.5rem; opacity: 0.25; margin-left: auto; white-space: nowrap; }
+#achieve-close {
+  display: block; margin: 12px auto 0;
+  background: rgba(0,204,136,0.12); border: 1px solid rgba(0,204,136,0.25);
+  color: #00cc88; padding: 6px 24px; border-radius: 10px; cursor: pointer; font-size: 0.8rem;
+}
+#achieve-close:hover { background: rgba(0,204,136,0.22); }
+
+/* ─── Achievement Toast ─── */
+#achieve-toast {
+  position: absolute; top: 30%; left: 50%; transform: translate(-50%,-50%);
+  z-index: 75; pointer-events: none;
+  background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.25);
+  border-radius: 14px; padding: 12px 24px; text-align: center;
+  opacity: 0; transition: none;
+}
+#achieve-toast.show {
+  animation: achievePop 1.8s ease-out forwards;
+}
+@keyframes achievePop {
+  0%{opacity:0;transform:translate(-50%,-50%) scale(0.3)}
+  15%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}
+  25%{transform:translate(-50%,-50%) scale(1)}
+  70%{opacity:1}
+  100%{opacity:0;transform:translate(-50%,-60%) scale(0.9)}
+}
+#achieve-toast .icon { font-size: 2rem; display: block; margin-bottom: 4px; }
+#achieve-toast .title { font-size: 0.9rem; font-weight: bold; color: #ffd700; letter-spacing: 0.5px; }
+#achieve-toast .desc { font-size: 0.65rem; opacity: 0.6; }
+
+/* ─── Boss Bug ─── */
+.bug.boss {
+  font-size: 2.5rem; z-index: 12;
+  filter: drop-shadow(0 0 8px rgba(255,50,50,0.4));
+  animation: bossBugSpawn 0.4s ease-out, bossBugPulse 0.8s ease-in-out infinite 0.4s;
+}
+@keyframes bossBugSpawn { 0%{transform:scale(0);opacity:0} 100%{transform:scale(1);opacity:1} }
+@keyframes bossBugPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
+.bug.boss .hp-bar {
+  position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+  width: 30px; height: 4px; background: rgba(255,0,0,0.2); border-radius: 2px; overflow: hidden;
+}
+.bug.boss .hp-fill { height: 100%; background: #ff4444; border-radius: 2px; transition: width 0.15s; }
+
+/* ─── Combo Meter ─── */
+#combo-meter {
+  position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
+  z-index: 5; pointer-events: none; text-align: center; opacity: 0;
+  transition: opacity 0.2s;
+}
+#combo-meter.show { opacity: 1; }
+#combo-meter .count { font-size: 1.4rem; font-weight: bold; color: #ffd700; }
+#combo-meter .label { font-size: 0.55rem; opacity: 0.5; text-transform: uppercase; letter-spacing: 1px; }
+#combo-meter .timer-bar {
+  width: 60px; height: 3px; background: rgba(255,215,0,0.15); border-radius: 2px; margin: 3px auto 0; overflow: hidden;
+}
+#combo-meter .timer-fill { height: 100%; background: #ffd700; border-radius: 2px; transition: width 0.1s; }
+
+/* ─── Floating Score ─── */
+.float-score {
+  position: absolute; font-size: 0.9rem; font-weight: bold; pointer-events: none; z-index: 15;
+  animation: floatUp 0.7s ease-out forwards;
+}
+@keyframes floatUp { 0%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-40px) scale(0.6)} }
+
+/* ─── Stats Panel ─── */
+#stats-overlay {
+  position: absolute; inset: 0; z-index: 70;
+  background: rgba(0,0,0,0.8); display: none;
+  align-items: center; justify-content: center;
+}
+#stats-overlay.show { display: flex; }
+#stats-panel {
+  width: min(360px, 85vw); max-height: 70vh; overflow-y: auto;
+  background: #001a0a; border: 1px solid rgba(0,204,136,0.2);
+  border-radius: 16px; padding: 20px;
+}
+#stats-panel h2 { font-size: 1.1rem; color: #00cc88; margin-bottom: 12px; }
+.stat-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 0.75rem; border-bottom: 1px solid rgba(0,204,136,0.05); }
+.stat-row:last-child { border: none; }
+.stat-row .label { opacity: 0.5; }
+.stat-row .value { color: #00cc88; font-weight: bold; }
+#stats-close {
+  display: block; margin: 12px auto 0;
+  background: rgba(0,204,136,0.12); border: 1px solid rgba(0,204,136,0.25);
+  color: #00cc88; padding: 6px 24px; border-radius: 10px; cursor: pointer; font-size: 0.8rem;
+}
+#stats-close:hover { background: rgba(0,204,136,0.22); }
+
+/* ─── List Panel ─── */
+#list-overlay, #settings-overlay {
+  position: absolute; inset: 0; z-index: 40;
+  background: rgba(0,0,0,0.7); display: flex;
+  align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: 0.2s;
+}
+#list-overlay.show, #settings-overlay.show { opacity: 1; pointer-events: auto; }
+#list-panel, #settings-panel {
+  background: #001a0e; border: 1px solid rgba(0,204,136,0.2);
+  border-radius: 16px; padding: 20px; max-width: 420px; width: 90%;
+  max-height: 80vh; overflow-y: auto; position: relative;
+}
+#list-panel h2, #settings-panel h2 { font-size: 1rem; margin-bottom: 12px; text-align: center; color: #00cc88; }
+#list-panel .feat-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 8px; border-radius: 6px; font-size: 0.75rem;
+  border-bottom: 1px solid rgba(0,204,136,0.06);
+}
+#list-panel .feat-row .icon { font-size: 1rem; width: 24px; text-align: center; }
+#list-panel .feat-row .name { flex: 1; font-weight: bold; }
+#list-panel .feat-row .desc { flex: 2; opacity: 0.6; font-size: 0.65rem; }
+#list-panel .feat-row.locked { opacity: 0.4; }
+#list-panel .feat-row.unlocked { opacity: 1; }
+#list-panel .feat-row.unlocked .name { color: #ffd700; }
+#list-close, #settings-close {
+  display: block; margin: 12px auto 0;
+  background: rgba(0,204,136,0.12); border: 1px solid rgba(0,204,136,0.25);
+  color: #00cc88; padding: 6px 24px; border-radius: 10px; cursor: pointer; font-size: 0.8rem;
+}
+#list-close:hover, #settings-close:hover { background: rgba(0,204,136,0.22); }
+#settings-panel .set-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 0; border-bottom: 1px solid rgba(0,204,136,0.06);
+  font-size: 0.8rem;
+}
+#settings-panel .set-row:last-child { border: none; }
+
+/* ─── Audio Panel ─── */
+#audio-overlay {
+  position: absolute; inset: 0; z-index: 40;
+  background: rgba(0,0,0,0.7); display: flex;
+  align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: 0.2s;
+}
+#audio-overlay.show { opacity: 1; pointer-events: auto; }
+#audio-panel {
+  background: #001a0e; border: 1px solid rgba(0,204,136,0.2);
+  border-radius: 16px; padding: 20px; max-width: 360px; width: 90%;
+}
+#audio-panel h2 { font-size: 1rem; margin-bottom: 16px; text-align: center; color: #00cc88; }
+#audio-panel .vol-row { margin-bottom: 14px; }
+#audio-panel .vol-row label { display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 4px; }
+#audio-panel .vol-row input[type=range] { width: 100%; height: 4px; -webkit-appearance: none; background: rgba(0,204,136,0.15); border-radius: 2px; outline: none; }
+#audio-panel .vol-row input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #00cc88; cursor: pointer; border: none; }
+#audio-close {
+  display: block; margin: 16px auto 0;
+  background: rgba(0,204,136,0.12); border: 1px solid rgba(0,204,136,0.25);
+  color: #00cc88; padding: 6px 24px; border-radius: 10px; cursor: pointer; font-size: 0.8rem;
+}
+#audio-close:hover { background: rgba(0,204,136,0.22); }
+
+/* ─── Header Buttons ─── */
+.hdr-btn {
+  background: none; border: 1px solid rgba(0,204,136,0.15);
+  color: #00cc88; padding: 3px 8px; border-radius: 6px;
+  cursor: pointer; font-size: 0.8rem; transition: 0.15s;
+}
+.hdr-btn:hover { border-color: #00cc88; background: rgba(0,204,136,0.1); }
+#reset-btn { color: rgba(255,100,100,0.5); border-color: rgba(255,100,100,0.15); }
+#reset-btn:hover { color: #ff6666; border-color: #ff6666; }
+#mute-btn { font-size: 0.75rem; padding: 3px 6px; }
+#mute-btn.muted { color: rgba(255,100,100,0.5); border-color: rgba(255,100,100,0.15); }
+#mute-btn.muted:hover { color: #ff6666; }
+
+/* ─── Power-ups ─── */
+.powerup {
+  position: absolute; font-size: 1.6rem; z-index: 9; cursor: pointer; pointer-events: auto;
+  animation: powerupSpawn 0.3s ease-out, powerupFloat 1.2s ease-in-out infinite 0.3s;
+}
+@keyframes powerupSpawn { 0%{transform:scale(0);opacity:0} 100%{transform:scale(1);opacity:1} }
+@keyframes powerupFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+.powerup .glow {
+  position: absolute; inset: -8px; border-radius: 50%; pointer-events: none;
+  animation: powerupGlow 1s ease-in-out infinite;
+}
+@keyframes powerupGlow { 0%,100%{opacity:0.3} 50%{opacity:0.6} }
+.powerup[data-type="freeze"] .glow { background: radial-gradient(circle, rgba(100,200,255,0.2), transparent); }
+.powerup[data-type="bomb"] .glow { background: radial-gradient(circle, rgba(255,150,50,0.2), transparent); }
+.powerup[data-type="double"] .glow { background: radial-gradient(circle, rgba(255,215,0,0.2), transparent); }
+
+/* ─── Active Effects Bar ─── */
+#active-effects {
+  position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
+  z-index: 8; display: flex; gap: 6px; pointer-events: none;
+}
+.active-eff {
+  font-size: 0.6rem; padding: 2px 8px; border-radius: 6px;
+  background: rgba(0,0,0,0.4); border: 1px solid rgba(0,204,136,0.15);
+  opacity: 0; transition: opacity 0.2s; display: flex; align-items: center; gap: 4px;
+}
+.active-eff.show { opacity: 0.8; }
+.active-eff .timer { color: #ffd700; font-weight: bold; }
+
+/* ─── Squash Particles ─── */
+.squash-particle {
+  position: absolute; width: 4px; height: 4px; border-radius: 50%;
+  pointer-events: none; z-index: 13;
+  animation: particleBurst 0.5s ease-out forwards;
+}
+@keyframes particleBurst { 0%{opacity:1;transform:translate(0,0) scale(1)} 100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(0)} }
+
+/* ─── Bug Trails ─── */
+.bug-trail {
+  position: absolute; width: 3px; height: 3px; border-radius: 50%;
+  pointer-events: none; z-index: 1;
+  animation: trailFade 0.6s ease-out forwards;
+}
+@keyframes trailFade { 0%{opacity:0.5;transform:scale(1)} 100%{opacity:0;transform:scale(0)} }
+
+/* ─── Screen Shake ─── */
+#game.shake {
+  animation: screenShake 0.15s ease-out;
+}
+@keyframes screenShake {
+  0%{transform:translate(0,0)} 20%{transform:translate(-3px,2px)} 40%{transform:translate(2px,-1px)} 60%{transform:translate(-1px,3px)} 80%{transform:translate(1px,-2px)} 100%{transform:translate(0,0)}
+}
+
+/* ─── Mult Display ─── */
+#mult-display {
+  font-size: 0.7rem; padding: 2px 8px; border-radius: 6px;
+  background: rgba(255,215,0,0.08); border: 1px solid rgba(255,215,0,0.12);
+  opacity: 0.6; white-space: nowrap;
+}
+#mult-display .mult-val { color: #ffd700; font-weight: bold; }
+
+/* ─── Projectiles ─── */
+.projectile {
+  position: absolute; z-index: 14; pointer-events: none; font-size: 1.2rem;
+}
+.projectile.fired {
+  animation: none;
+}
+@keyframes projTrail { 0%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(0.3)} }
+.proj-trail {
+  position: absolute; width: 4px; height: 4px; border-radius: 50%;
+  background: #ffd700; pointer-events: none; z-index: 13;
+  animation: projTrail 0.3s ease-out forwards;
+}
+
+/* ─── Crosshair ─── */
+#game.gun-ready #scene { cursor: crosshair; }
+
+
+/* ─── Chat Log ─── */
+#chat-log {
+  flex-shrink: 0; max-height: 120px; overflow-y: auto;
+  padding: 6px 16px; background: rgba(0,0,0,0.3);
+  border-top: 1px solid rgba(0,204,136,0.08);
+  border-bottom: 1px solid rgba(0,204,136,0.08);
+  z-index: 10;
+}
+#chat-log::-webkit-scrollbar { width: 4px; }
+#chat-log::-webkit-scrollbar-track { background: transparent; }
+#chat-log::-webkit-scrollbar-thumb { background: rgba(0,204,136,0.2); border-radius: 2px; }
+.chat-msg { font-size: 0.7rem; padding: 2px 0; opacity: 0.8; }
+.chat-msg.prompt { color: #80d8b0; }
+.chat-msg.ai { color: #00cc88; }
+.chat-msg.ai .emoji { margin-right: 4px; }
+.chat-msg.warn { color: #ff8844; }
+.chat-msg.err { color: #ff4444; }
+
+/* ─── Input ─── */
+#input-row {
+  display: flex; gap: 8px; padding: 8px 16px; flex-shrink: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 10;
+}
+#prompt-input {
+  flex: 1; background: rgba(0,204,136,0.06);
+  border: 1px solid rgba(0,204,136,0.2); border-radius: 10px;
+  color: #b0e8d0; padding: 8px 14px; font-size: 0.85rem; outline: none;
+  font-family: inherit; transition: 0.15s;
+}
+#prompt-input:focus { border-color: #00cc88; background: rgba(0,204,136,0.1); }
+#prompt-input::placeholder { color: rgba(0,204,136,0.25); }
+#prompt-input:disabled { opacity: 0.4; }
+#send-btn {
+  background: rgba(0,204,136,0.12); border: 1px solid rgba(0,204,136,0.25);
+  color: #00cc88; padding: 8px 18px; border-radius: 10px;
+  font-size: 0.85rem; cursor: pointer; white-space: nowrap; transition: 0.15s;
+  font-family: inherit; font-weight: bold;
+}
+#send-btn:hover { background: rgba(0,204,136,0.22); border-color: #00cc88; }
+#send-btn:disabled { opacity: 0.3; cursor: default; }
+
+/* ─── Glitch Overlay ─── */
+#glitch {
+  position: absolute; inset: 0; pointer-events: none; z-index: 50;
+  opacity: 0; transition: opacity 0.1s;
+  background: repeating-linear-gradient(0deg, rgba(255,0,0,0.1) 0px, rgba(0,255,0,0.05) 2px, transparent 4px);
+}
+#glitch.active { opacity: 1; animation: glitchShake 0.2s ease-out; }
+@keyframes glitchShake {
+  0%{transform:translate(0,0)} 20%{transform:translate(-4px,2px)} 40%{transform:translate(4px,-1px)} 60%{transform:translate(-2px,3px)} 80%{transform:translate(2px,-2px)} 100%{transform:translate(0,0)}
+}
+#glitch-overlay {
+  position: absolute; inset: 0; pointer-events: none; z-index: 45;
+  background: rgba(255,0,0,0.08); opacity: 0; transition: opacity 0.15s;
+}
+#glitch-overlay.active { animation: flashGlitch 0.3s ease-out; }
+@keyframes flashGlitch { 0%{opacity:1} 100%{opacity:0} }
+
+/* ─── Toast ─── */
+#toast {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  z-index: 60; pointer-events: none;
+  font-size: 1.2rem; font-weight: bold; color: #00cc88;
+  opacity: 0; transition: none;
+}
+#toast.show {
+  animation: toastAnim 1s ease-out forwards;
+}
+@keyframes toastAnim { 0%{opacity:0;transform:translate(-50%,-50%) scale(0.5)} 20%{opacity:1;transform:translate(-50%,-50%) scale(1.1)} 30%{transform:translate(-50%,-50%) scale(1)} 80%{opacity:1} 100%{opacity:0;transform:translate(-50%,-60%) scale(1)} }
+
+/* ─── Features Bar ─── */
+#features-bar {
+  flex-shrink: 0; padding: 3px 16px 5px;
+  background: rgba(0,0,0,0.2); z-index: 10;
+  font-size: 0.65rem;
+}
+#features-bar span { opacity: 0.4; }
+#features-bar .feat { opacity: 0.7; color: #00cc88; margin-right: 8px; }
+
+/* ─── Thinking Indicator ─── */
+#thinking {
+  position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%);
+  font-size: 0.75rem; color: #00cc88; opacity: 0; z-index: 5;
+  transition: opacity 0.2s; pointer-events: none;
+  background: rgba(0,0,0,0.4); padding: 4px 16px; border-radius: 10px;
+}
+#thinking.show { opacity: 0.7; }
+
+/* ─── Responsive ─── */
+@media (max-width: 600px) {
+  #header { gap: 4px; padding: 4px 6px; }
+  #header h1 { font-size: 0.75rem; }
+  .hdr-item { font-size: 0.6rem; }
+  .hdr-btn { font-size: 0.65rem; padding: 2px 5px; }
+  #achieve-btn { font-size: 0.7rem !important; padding: 2px 6px !important; }
+  #chat-log { max-height: 60px; }
+  #input-row { padding: 4px 6px; gap: 4px; }
+  #prompt-input { font-size: 0.75rem; padding: 5px 8px; }
+  #send-btn { padding: 5px 10px; font-size: 0.75rem; }
+  #features-bar { font-size: 0.55rem; padding: 2px 8px 4px; }
+}
+@media (max-width: 400px) {
+  #header .hdr-item:nth-child(n+4) { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="game">
+  <div id="header">
+    <h1>🤖 Prompter</h1>
+    <span id="mood-icon" style="display:none" title="AI Mood">😊</span>
+    <span class="hdr-item">Score: <b class="val" id="score-val">0</b></span>
+    <span class="hdr-item">Squashed: <b class="val" id="squash-val">0</b></span>
+    <span class="hdr-item">Missed: <b class="val" id="miss-val">0</b></span>
+    <span class="hdr-item">Features: <b class="val" id="feat-val">0</b></span>
+    <span class="hdr-item" id="streak-item" style="display:none">Streak: <b class="val" id="streak-val">0</b>🔥</span>
+    <span id="mult-display" style="display:none">×<span class="mult-val" id="mult-val">1.0</span></span>
+    <span class="hdr-item" id="ammo-display" style="display:none">🔫 <b class="val" id="ammo-val">0</b></span>
+    <button class="hdr-btn" id="mute-btn" style="display:none" title="Toggle sound (M)">🔊</button>
+    <button class="hdr-btn" id="stats-btn" style="display:none" title="Stats">📊</button>
+    <button class="hdr-btn" id="reset-btn" style="display:none" title="Reset progress">🗑️</button>
+    <button id="achieve-btn" style="display:none;background:none;border:1px solid rgba(0,204,136,0.2);border-radius:8px;color:#00cc88;padding:4px 10px;cursor:pointer;font-size:0.85rem" title="Achievements">🏆</button>
+    <button class="hdr-btn" id="list-btn" style="display:none" title="Feature List">📋</button>
+    <button class="hdr-btn" id="settings-btn" style="display:none" title="Settings">⚙️</button>
+    <button class="hdr-btn" id="audio-btn" style="display:none" title="Audio Mixer">🎚️</button>
+  </div>
+
+  <div id="scene">
+    <div id="scene-bg"></div>
+    <div id="ground"><div id="ground-inner"></div></div>
+    <div id="engine-core">⚙️</div>
+    <div id="engine-label">engine core</div>
+    <div id="player-el" class="scene-el" style="display:none">🧑‍💻</div>
+    <div id="scene-score">SCORE: 0</div>
+    <div id="scene-health"><div id="scene-health-bar"></div></div>
+    <div id="scene-level">LEVEL 1</div>
+    <div id="thinking">Processing...</div>
+    <div id="combo-meter" style="display:none"><div class="count">x1</div><div class="label">combo</div><div class="timer-bar"><div class="timer-fill" style="width:100%"></div></div></div>
+    <div id="active-effects" style="display:none"></div>
+    <div id="glitch"></div>
+    <div id="glitch-overlay"></div>
+    <div id="toast"></div>
+    <div id="achieve-overlay">
+      <div id="achieve-panel">
+        <h2>🏆 Achievements</h2>
+        <div id="achieve-list"></div>
+        <button id="achieve-close">Close</button>
+      </div>
+    </div>
+    <div id="achieve-toast"></div>
+    <div id="stats-overlay">
+      <div id="stats-panel">
+        <h2>📊 Stats</h2>
+        <div id="stats-content"></div>
+        <button id="stats-close">Close</button>
+      </div>
+    </div>
+    <div id="list-overlay">
+      <div id="list-panel">
+        <h2>📋 Feature List</h2>
+        <div id="list-content"></div>
+        <button id="list-close">Close</button>
+      </div>
+    </div>
+    <div id="settings-overlay">
+      <div id="settings-panel">
+        <h2>⚙️ Settings</h2>
+        <div id="settings-content"></div>
+        <button id="settings-close">Close</button>
+      </div>
+    </div>
+    <div id="audio-overlay">
+      <div id="audio-panel">
+        <h2>🔊 Audio Mixer</h2>
+        <div id="audio-content"></div>
+        <button id="audio-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="chat-log"></div>
+
+  <div id="features-bar">
+    <span>Features:</span>
+    <span id="feat-list">none yet</span>
+  </div>
+
+  <div id="input-row">
+    <input id="prompt-input" type="text" placeholder='Type a prompt e.g. "add a player", "jump", "enemies"...' autofocus>
+    <button id="send-btn">Prompt</button>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   Prompter — Prompt an AI to build a game, squash the bugs!
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ─── State ─── */
+const LS_KEY = 'prompter_save';
+const state = {
+  score: 0, squashed: 0, missed: 0, streak: 0, bestStreak: 0,
+  features: new Set(),
+  allFeatures: [],
+  scene: {
+    player: false, jump: false, djump: false, dash: false,
+    enemies: false, platforms: false, powerups: false, coins: false,
+    score: false, health: false, speed: false, weapon: false,
+    boss: false, levels: false, music: false, particles: false,
+    clouds: false, trees: false, water: false,
+    bgColor: null, gravity: false, shield: false, storm: false,
+    movement: false, audio: false, bullets: false,
+    // UI unlocks
+    ui_achievements: false, ui_stats: false, ui_mute: false, ui_reset: false,
+    ui_combo: false, ui_streak: false, ui_mood: false, ui_list: false, ui_settings: false, ui_audio: false
+  },
+  bugs: [], busy: false, bugWaves: 0, bugSpeed: 0.3,
+  promptCount: 0, cleanWaves: 0, totalWaves: 0,
+  achievements: {},
+  combo: { count: 0, multiplier: 1, timer: 0, maxCombo: 0 },
+  totalSquashed: 0, bossKills: 0, bossWaves: 0, powerupsCollected: 0,
+  muted: false,
+  volumeMaster: 1, volumeMusic: 1, volumeSfx: 1,
+  effects: {}, // { freeze, bomb, double } - active effect timestamps
+  powerupTimer: 0,
+  powerupEl: null,
+  playerPos: { x: 0, y: 0 }, playerSpeed: 3,
+  ammo: 0, maxAmmo: 12,
+  projectiles: [],
+  keys: {},
+  mouseX: 0, mouseY: 0,
+  shootCooldown: 0,
+  gameOver: false
+};
+
+const BUG_EMOJIS = ['🐛','🪲','🦗','🐜','🦟','🐝','🪰','🪱'];
+const RESPONSES = [
+  'Processing your request... done!', 'Great idea! Adding it now.',
+  'Love it! Compiling...', 'Oh, that\'s a good one! Implemented.',
+  'On it! Feature added.', 'Let me work on that... done!',
+  'Excellent choice! Built it in.', 'You read my mind! Added.',
+  'Whoa, nice! Feature integrated.', 'Coding that up... complete!'
+];
+const WARN_RESPONSES = [
+  'Bug detected! Squash it!', 'Something got through... catch it!',
+  'A bug slipped in! Quick!', 'Incoming bug!'
+];
+const GLITCH_RESPONSES = [
+  'Bug reached the engine! ⚠️', 'Corruption detected!',
+  'Engine compromised!', 'Bug in the code! 🔴'
+];
+
+/* ─── Achievements ─── */
+const ACHIEVEMENTS = {
+  first_squash:  { icon:'🐛', title:'First Squash',      desc:'Squash your first bug',            check:s=>s.squashed>=1 },
+  squasher_10:   { icon:'🪲', title:'Bug Squasher',       desc:'Squash 10 bugs',                   check:s=>s.squashed>=10 },
+  exterminator:  { icon:'🦗', title:'Bug Exterminator',   desc:'Squash 50 bugs',                   check:s=>s.squashed>=50 },
+  annihilator:   { icon:'💥', title:'Bug Annihilator',    desc:'Squash 100 bugs',                  check:s=>s.squashed>=100 },
+  feature_5:     { icon:'⭐', title:'Feature Creep',      desc:'Add 5 features',                   check:s=>s.features.size>=5 },
+  designer:      { icon:'🎮', title:'Game Designer',      desc:'Add 10 features',                  check:s=>s.features.size>=10 },
+  full_build:    { icon:'🏗️', title:'Full Build',        desc:'Add all 20 features',              check:s=>s.features.size>=20 },
+  streak_5:      { icon:'🔥', title:'On Fire',            desc:'Reach 5 streak',                   check:s=>s.streak>=5 },
+  unstoppable:   { icon:'🔥🔥',title:'Unstoppable',        desc:'Reach 10 streak',                  check:s=>s.streak>=10 },
+  clean_code_5:  { icon:'✨', title:'Clean Code',         desc:'Complete 5 waves bug-free',        check:s=>s.cleanWaves>=5 },
+  clean_code_10: { icon:'🌟', title:'Spotless',           desc:'Complete 10 waves bug-free',       check:s=>s.cleanWaves>=10 },
+  high_score:    { icon:'🏆', title:'High Scorer',        desc:'Reach 500 points',                 check:s=>s.score>=500 },
+  glitch_survivor:{icon:'😵', title:'Glitch Survivor',    desc:'Survive 10 engine breaches',        check:s=>s.missed>=10 },
+  veteran:       { icon:'🎯', title:'Prompt Veteran',     desc:'Send 50 prompts',                  check:s=>s.promptCount>=50 },
+  collector:     { icon:'📚', title:'Feature Collector',  desc:'Unlock every achievement',          check:s=>Object.keys(ACHIEVEMENTS).every(k=>s.achievements[k]) },
+  boss_killer:   { icon:'👑', title:'Bug Boss Slayer',    desc:'Defeat 3 boss bugs',                check:s=>(s.bossKills||0)>=3 },
+  combo_10:      { icon:'💫', title:'Combo Master',       desc:'Reach 10x combo',                   check:s=>(s.combo.maxCombo||0)>=10 },
+  powerup_coll:  { icon:'🔋', title:'Power Collector',    desc:'Collect 10 power-ups',              check:s=>(s.powerupsCollected||0)>=10 },
+};
+
+const MOODS = [
+  { id:'happy',   icon:'😊', label:'Happy',   minStreak:3, maxMissed:2, bonus:1.2 },
+  { id:'neutral', icon:'😐', label:'Neutral',  minStreak:0, maxMissed:5, bonus:1.0 },
+  { id:'stressed',icon:'😰', label:'Stressed', minStreak:-1, maxMissed:99, bonus:0.8 },
+];
+
+/* ═══════════════════════════ Feature Registry ═══════════════════════════ */
+const PROMPT_HANDLERS = {};
+const FEATURE_REGISTRY = {};
+function registerFeature(key, def) {
+  FEATURE_REGISTRY[key] = def;
+  if (!PROMPT_HANDLERS[key]) {
+    PROMPT_HANDLERS[key] = {
+      words: def.words,
+      msg: def.msg || 'Feature added!',
+      bugs: def.bugs || 1,
+      fn: def.fn || (() => { state.scene[key] = true; })
+    };
+  }
+}
+registerFeature('player',   { words:['player','character','hero','guy','girl'],       msg:'Spawning player character...',  bugs:1, fn:addPlayer,       desc:'Playable character in the scene' });
+registerFeature('jump',     { words:['jump','jumping','bounce','hop','leap'],         msg:'Calculating jump physics...',   bugs:1, fn:addJump,        desc:'Jump ability for player',       deps:['player'] });
+registerFeature('djump',    { words:['double jump','double-jump','2x jump'],          msg:'Double jump module installed!', bugs:2, fn:addDJump,       desc:'Double jump for player',         deps:['player','jump'] });
+registerFeature('dash',     { words:['dash','sprint','dodge','roll'],                 msg:'Dash mechanic activated!',      bugs:2, fn:addDash,        desc:'Dash/roll for player',           deps:['player'] });
+registerFeature('enemies',  { words:['enemy','enemies','monster','monsters','bad'],   msg:'Spawning hostile entities...',  bugs:3, fn:addEnemies,     desc:'Enemy characters spawn',         deps:['player'] });
+registerFeature('platforms',{ words:['platform','platforms','block','blocks','tile'], msg:'Building platforms...',         bugs:2, fn:addPlatforms,   desc:'Platforms to jump on' });
+registerFeature('powerups', { words:['powerup','power-ups','power up','boost'],       msg:'Power-up system online!',       bugs:2, fn:addPowerups,    desc:'Collectible power-ups',            deps:['player'] });
+registerFeature('coins',    { words:['coin','coins','money','gold','treasure'],       msg:'Dropping coins into the world...',bugs:1, fn:addCoins,      desc:'Collectible coins' });
+registerFeature('score',    { words:['score','points','scoring','counter'],           msg:'Score display calibrated!',     bugs:1, fn:addScore,       desc:'Score counter display' });
+registerFeature('health',   { words:['health','hp','life','lives','hearts'],          msg:'Health system initialized...',  bugs:2, fn:addHealth,      desc:'Health bar for player',          deps:['player'] });
+registerFeature('speed',    { words:['speed','fast','run','accelerate','move speed'], msg:'Tuning movement speed...',      bugs:2, fn:addSpeed,       desc:'Speed lines visual effect',      deps:['player'] });
+registerFeature('weapon',   { words:['weapon','gun','sword','shoot','attack','gun'],  msg:'Equipping weapon...',           bugs:2, fn:addWeapon,      desc:'Shoot projectiles at bugs',       deps:['player'] });
+registerFeature('boss',     { words:['boss','giant','big enemy','dragon','final'],    msg:'Spawning boss entity! This is big!', bugs:4, fn:addBoss,   desc:'Giant boss enemy' });
+registerFeature('levels',   { words:['level','levels','stage','stages','world'],      msg:'Level system constructed!',     bugs:2, fn:addLevels,      desc:'Level/stage progression' });
+registerFeature('music',    { words:['music','song','soundtrack','melody','tune'],    msg:'Audio engine humming...',       bugs:1, fn:addMusic,       desc:'Background music element' });
+registerFeature('particles',{ words:['particle','particles','effects','vfx','fire'],  msg:'Particle system initialized!',  bugs:2, fn:addParticles,   desc:'Floating particle effects' });
+registerFeature('clouds',   { words:['cloud','clouds','sky','weather','atmosphere'],  msg:'Generating cloud layer...',     bugs:1, fn:addClouds,      desc:'Drifting clouds in background' });
+registerFeature('trees',    { words:['tree','trees','nature','forest','plant'],       msg:'Planting trees...',             bugs:1, fn:addTrees,       desc:'Trees in the scene' });
+registerFeature('water',    { words:['water','river','lake','ocean','sea','lava'],    msg:'Flooding the scene...',         bugs:2, fn:addWater,       desc:'Water/lava below ground' });
+registerFeature('background',{words:['background','bg','color','theme','sky color'],  msg:'Repainting the world...',       bugs:1, fn:addBackground,  desc:'Random background color' });
+// UI unlock features
+registerFeature('achievements',{words:['achievements','achievement','trophy','trophies'], msg:'Achievement system online!',    bugs:1, fn:()=>unlockUI('achievements'), desc:'Track your accomplishments' });
+registerFeature('stats',      {words:['stats','statistics','stat','data','analytics'],     msg:'Statistics module loaded!',     bugs:1, fn:()=>unlockUI('stats'),       desc:'View detailed game stats' });
+registerFeature('mute',       {words:['mute','silence','toggle sound'],                         msg:'Sound controls activated!',     bugs:0, fn:()=>unlockUI('mute'),        desc:'Toggle sound effects' });
+registerFeature('reset',      {words:['reset','restart','clear','wipe','fresh'],           msg:'Reset functionality added!',    bugs:0, fn:()=>unlockUI('reset'),       desc:'Reset all progress' });
+registerFeature('combo',      {words:['combo','multiplier','chain','streak','consecutive'],msg:'Combo system initialized!',     bugs:2, fn:()=>unlockUI('combo'),       desc:'Squash bugs in quick succession',  deps:['player'] });
+registerFeature('mood',       {words:['mood','emotion','feeling','vibe','attitude'],        msg:'AI mood display enabled!',      bugs:1, fn:()=>unlockUI('mood'),        desc:'See the AI emotional state' });
+registerFeature('list',       {words:['list','catalog','guide','help','manual','index'],    msg:'Feature list compiled!',         bugs:0, fn:()=>unlockUI('list'),        desc:'Browse all discoverable features' });
+registerFeature('settings',   {words:['settings','options','preferences','config','setup'],  msg:'Settings panel unlocked!',       bugs:0, fn:()=>unlockUI('settings'),    desc:'Configure game options' });
+// Core unlockable features
+registerFeature('movement',  {words:['move','movement','walk','controls','navigation'],      msg:'Movement controls online!',      bugs:1, fn:addMovement,     desc:'WASD/Arrow movement for player',  deps:['player'] });
+registerFeature('audio',     {words:['audio','advanced audio','mixer','sound settings','equalizer','volume control'],  msg:'Advanced audio panel online!',   bugs:0, fn:addAudio,       desc:'Independent volume controls' });
+registerFeature('bullets',   {words:['bullets','ammo','ammunition','magazine','bullet'],      msg:'Ammo system online! Squash bugs to reload.', bugs:1, fn:addBullets, desc:'Limited ammo — squash bugs to refill', deps:['weapon'] });
+// New features
+registerFeature('gravity',   {words:['gravity','fall','down','pull','attract'],              msg:'Gravity field activated!',       bugs:2, fn:addGravity,      desc:'Bugs are pulled downward' });
+registerFeature('shield',    {words:['shield','barrier','protect','guard','defense'],         msg:'Shield bubble deployed!',        bugs:2, fn:addShield,       desc:'Auto-squash bugs near engine',  deps:['player'] });
+registerFeature('storm',     {words:['storm','rain','lightning','weather','thunder'],         msg:'Storm clouds gathering...',      bugs:2, fn:addStorm,        desc:'Lightning & rain effects' });
+
+/* ─── DOM refs ─── */
+const $ = id => document.getElementById(id);
+const scene = $('scene'), chatLog = $('chat-log'), featList = $('feat-list');
+const promptInput = $('prompt-input'), sendBtn = $('send-btn');
+const scoreVal = $('score-val'), squashVal = $('squash-val'), missVal = $('miss-val');
+const featVal = $('feat-val'), streakVal = $('streak-val');
+const playerEl = $('player-el'), sceneScore = $('scene-score');
+const sceneHealth = $('scene-health'), sceneHealthBar = $('scene-health-bar');
+const sceneLevel = $('scene-level'), thinkingEl = $('thinking');
+const glitchEl = $('glitch'), glitchOv = $('glitch-overlay');
+const toastEl = $('toast'), achieveToast = $('achieve-toast');
+const achieveOverlay = $('achieve-overlay'), achieveList = $('achieve-list');
+const moodIcon = $('mood-icon');
+const comboMeter = $('combo-meter'), comboCount = comboMeter.querySelector('.count');
+const comboTimerFill = comboMeter.querySelector('.timer-fill');
+const multVal = $('mult-val');
+const ammoVal = $('ammo-val'), ammoDisplay = $('ammo-display');
+const listOverlay = $('list-overlay'), listContent = $('list-content');
+const settingsOverlay = $('settings-overlay'), settingsContent = $('settings-content');
+const statsOverlay = $('stats-overlay'), statsContent = $('stats-content');
+const audioOverlay = $('audio-overlay'), audioContent = $('audio-content');
+
+/* ─── Initialization ─── */
+function init() {
+  createStars();
+  if (state.features.size > 0) restoreFeatures();
+  updateMood();
+  updateUI();
+
+  addChat('🤖 Welcome to Prompter! Try prompts to discover features...', 'ai');
+  if (state.features.size > 0) addChat('💾 Save loaded! You have ' + state.features.size + ' features.', 'ai');
+  else addChat('💡 Start with: "player", "jump", "enemies", "score", "music", "achievements", "combo"...', 'ai');
+
+  promptInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !state.busy) submitPrompt(); });
+  sendBtn.addEventListener('click', () => { if (!state.busy) submitPrompt(); });
+  // Close any overlay helper
+  function closeAllOverlays() {
+    [achieveOverlay, statsOverlay, listOverlay, settingsOverlay, audioOverlay].forEach(o => o.classList.remove('show'));
+  }
+  function toggleOverlay(el) {
+    const wasOpen = el.classList.contains('show');
+    closeAllOverlays();
+    if (!wasOpen) el.classList.add('show');
+  }
+  $('achieve-btn').addEventListener('click', () => { toggleOverlay(achieveOverlay); renderAchievements(); });
+  $('achieve-close').addEventListener('click', () => { achieveOverlay.classList.remove('show'); });
+  achieveOverlay.addEventListener('click', e => { if (e.target === achieveOverlay) achieveOverlay.classList.remove('show'); });
+  $('stats-btn').addEventListener('click', () => { toggleOverlay(statsOverlay); renderStats(); });
+  $('stats-close').addEventListener('click', () => { statsOverlay.classList.remove('show'); });
+  statsOverlay.addEventListener('click', e => { if (e.target === statsOverlay) statsOverlay.classList.remove('show'); });
+  $('list-btn').addEventListener('click', () => { toggleOverlay(listOverlay); renderList(); });
+  $('list-close').addEventListener('click', () => { listOverlay.classList.remove('show'); });
+  listOverlay.addEventListener('click', e => { if (e.target === listOverlay) listOverlay.classList.remove('show'); });
+  $('settings-btn').addEventListener('click', () => { toggleOverlay(settingsOverlay); renderSettings(); });
+  $('settings-close').addEventListener('click', () => { settingsOverlay.classList.remove('show'); });
+  settingsOverlay.addEventListener('click', e => { if (e.target === settingsOverlay) settingsOverlay.classList.remove('show'); });
+  $('audio-btn').addEventListener('click', () => { toggleOverlay(audioOverlay); renderAudio(); });
+  $('audio-close').addEventListener('click', () => { audioOverlay.classList.remove('show'); });
+  audioOverlay.addEventListener('click', e => { if (e.target === audioOverlay) audioOverlay.classList.remove('show'); });
+  $('reset-btn').addEventListener('click', resetGame);
+  const muteBtn = $('mute-btn');
+  muteBtn.addEventListener('click', () => {
+    state.muted = !state.muted;
+    muteBtn.textContent = state.muted ? '🔇' : '🔊';
+    muteBtn.classList.toggle('muted', state.muted);
+    setMusicMute(state.muted);
+    saveState();
+  });
+  if (state.muted) { muteBtn.textContent = '🔇'; muteBtn.classList.add('muted'); setMusicMute(true); }
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeAllOverlays(); }
+    if (e.key === 'm' && !e.ctrlKey && !e.metaKey && document.activeElement !== promptInput) {
+      state.muted = !state.muted;
+      muteBtn.textContent = state.muted ? '🔇' : '🔊';
+      muteBtn.classList.toggle('muted', state.muted);
+      setMusicMute(state.muted);
+      saveState();
+    }
+    // Player movement + shooting (movement gated behind feature)
+    if (document.activeElement !== promptInput) {
+      const m = ['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '];
+      const isMoveKey = m.includes(e.key);
+      if (isMoveKey && !e.ctrlKey && !e.metaKey) { e.preventDefault(); if (state.scene.movement) state.keys[e.key] = true; }
+      if (e.key === ' ' && state.scene.weapon) shoot();
+    }
+  });
+  document.addEventListener('keyup', e => { state.keys[e.key] = false; });
+  scene.addEventListener('mousemove', t => {
+    const r = scene.getBoundingClientRect();
+    state.mouseX = t.clientX - r.left; state.mouseY = t.clientY - r.top;
+  });
+  scene.addEventListener('click', e => {
+    if (state.busy || !state.scene.weapon) return;
+    if (e.target.classList.contains('bug') || e.target.closest('.bug')) return;
+    shoot();
+  });
+  requestAnimationFrame(tick);
+}
+
+function restoreFeatures() {
+  // Temporarily clear scene flags so handlers don't early-return (they re-set them)
+  const saved = {};
+  function withFlag(key, fn) { saved[key] = state.scene[key]; state.scene[key] = false; fn(); state.scene[key] = saved[key]; }
+  if (state.scene.player) { state.scene.player = false; addPlayer(); state.scene.player = true; }
+  if (state.scene.jump) withFlag('jump', addJump);
+  if (state.scene.djump) withFlag('djump', addDJump);
+  if (state.scene.dash) withFlag('dash', addDash);
+  if (state.scene.enemies) withFlag('enemies', addEnemies);
+  if (state.scene.platforms) withFlag('platforms', addPlatforms);
+  if (state.scene.powerups) withFlag('powerups', addPowerups);
+  if (state.scene.coins) withFlag('coins', addCoins);
+  if (state.scene.score) withFlag('score', addScore);
+  if (state.scene.health) withFlag('health', addHealth);
+  if (state.scene.speed) withFlag('speed', addSpeed);
+  if (state.scene.weapon) withFlag('weapon', addWeapon);
+  if (state.scene.boss) withFlag('boss', addBoss);
+  if (state.scene.levels) withFlag('levels', addLevels);
+  if (state.scene.music) withFlag('music', addMusic);
+  if (state.scene.particles) withFlag('particles', addParticles);
+  if (state.scene.clouds) withFlag('clouds', addClouds);
+  if (state.scene.trees) withFlag('trees', addTrees);
+  if (state.scene.water) withFlag('water', addWater);
+  if (state.scene.bgColor) withFlag('bgColor', addBackground);
+  if (state.scene.gravity) withFlag('gravity', addGravity);
+  if (state.scene.shield) withFlag('shield', addShield);
+  if (state.scene.storm) withFlag('storm', addStorm);
+  if (state.scene.movement) withFlag('movement', addMovement);
+  if (state.scene.audio) withFlag('audio', addAudio);
+  if (state.scene.bullets) withFlag('bullets', addBullets);
+  // Restore UI unlocks (unlockUI sets ui_ flags, no guard issue)
+  if (state.scene.ui_achievements) unlockUI('achievements', true);
+  if (state.scene.ui_stats) unlockUI('stats', true);
+  if (state.scene.ui_mute) unlockUI('mute', true);
+  if (state.scene.ui_reset) unlockUI('reset', true);
+  if (state.scene.ui_combo) unlockUI('combo', true);
+  if (state.scene.ui_mood) unlockUI('mood', true);
+  if (state.scene.ui_list) unlockUI('list', true);
+  if (state.scene.ui_settings) unlockUI('settings', true);
+  if (state.scene.ui_audio) unlockUI('audio', true);
+}
+
+function createStars() {
+  for (let i = 0; i < 40; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    s.style.left = Math.random() * 100 + '%';
+    s.style.top = Math.random() * 70 + '%';
+    s.style.width = s.style.height = (1 + Math.random() * 2) + 'px';
+    s.style.opacity = 0.2 + Math.random() * 0.4;
+    scene.appendChild(s);
+  }
+}
+
+/* ═══════════════════════════ Achievements ═══════════════════════════ */
+function unlockAchievement(id) {
+  if (state.achievements[id]) return;
+  state.achievements[id] = Date.now();
+  saveState();
+  const a = ACHIEVEMENTS[id];
+  if (a) {
+    // Only show notification if player has discovered achievements
+    if (state.scene.ui_achievements) {
+      achieveToast.innerHTML = `<span class="icon">${a.icon}</span><div class="title">🏆 ${a.title}</div><div class="desc">${a.desc}</div>`;
+      achieveToast.classList.remove('show');
+      void achieveToast.offsetWidth;
+      achieveToast.classList.add('show');
+      setTimeout(() => achieveToast.classList.remove('show'), 1900);
+      playAchieve();
+      addChat('🏆 Achievement unlocked: ' + a.title + '!', 'ai');
+    }
+  }
+  if (state.scene.ui_achievements) renderAchievements();
+}
+
+function checkAchievements() {
+  for (const [id, a] of Object.entries(ACHIEVEMENTS)) {
+    if (!state.achievements[id] && a.check(state)) {
+      unlockAchievement(id);
+    }
+  }
+}
+
+function renderAchievements() {
+  achieveList.innerHTML = Object.entries(ACHIEVEMENTS).map(([id, a]) => {
+    const unlocked = state.achievements[id];
+    const d = unlocked ? new Date(unlocked) : null;
+    return `<div class="ach-item${unlocked?' unlocked':''}">
+      <span class="icon">${unlocked ? a.icon : '🔒'}</span>
+      <div class="info">
+        <div class="title">${a.title}</div>
+        <div class="desc">${a.desc}</div>
+      </div>
+      ${d ? `<span class="date">${d.toLocaleDateString()}</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════ AI Mood ═══════════════════════════ */
+function calcMood() {
+  if (state.streak >= 3 && state.missed <= 2) return MOODS[0];
+  if (state.missed >= 6) return MOODS[2];
+  return MOODS[1];
+}
+
+function getMoodBonus() { return calcMood().bonus; }
+
+function updateMood() {
+  const mood = calcMood();
+  moodIcon.textContent = mood.icon;
+  moodIcon.title = 'AI Mood: ' + mood.label + ' (x' + mood.bonus.toFixed(1) + ' score)';
+}
+
+/* ═══════════════════════════ Save / Load ═══════════════════════════ */
+function saveState() {
+  try {
+    const s = {
+      score: state.score, squashed: state.squashed, missed: state.missed,
+      streak: state.streak, bestStreak: state.bestStreak,
+      features: [...state.features], allFeatures: state.allFeatures,
+      scene: { ...state.scene },
+      promptCount: state.promptCount,
+      cleanWaves: state.cleanWaves, totalWaves: state.totalWaves,
+      bugWaves: state.bugWaves, bugSpeed: state.bugSpeed,
+      achievements: state.achievements,
+      totalSquashed: state.totalSquashed,
+      combo: { count:0, multiplier:1, timer:0, maxCombo: (state.combo.maxCombo||0) },
+      bossKills: state.bossKills || 0,
+      bossWaves: state.bossWaves || 0,
+      powerupsCollected: state.powerupsCollected || 0,
+      muted: state.muted,
+      volumeMaster: state.volumeMaster, volumeMusic: state.volumeMusic, volumeSfx: state.volumeSfx,
+      ammo: state.ammo, maxAmmo: state.maxAmmo
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(s));
+  } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    state.score = s.score || 0;
+    state.squashed = s.squashed || 0;
+    state.missed = s.missed || 0;
+    state.streak = s.streak || 0;
+    state.bestStreak = s.bestStreak || 0;
+    state.allFeatures = s.allFeatures || [];
+    if (s.features) s.features.forEach(f => state.features.add(f));
+    if (s.scene) Object.assign(state.scene, s.scene);
+    state.promptCount = s.promptCount || 0;
+    state.cleanWaves = s.cleanWaves || 0;
+    state.totalWaves = s.totalWaves || 0;
+    state.bugWaves = s.bugWaves || 0;
+    state.bugSpeed = s.bugSpeed || 0.3;
+    state.achievements = s.achievements || {};
+    state.totalSquashed = s.totalSquashed || 0;
+    state.combo = s.combo || { count:0, multiplier:1, timer:0, maxCombo:0 };
+    state.bossKills = s.bossKills || 0;
+    state.bossWaves = s.bossWaves || 0;
+    state.powerupsCollected = s.powerupsCollected || 0;
+    state.muted = s.muted || false;
+    if (s.volumeMaster !== undefined) state.volumeMaster = s.volumeMaster;
+    if (s.volumeMusic !== undefined) state.volumeMusic = s.volumeMusic;
+    if (s.volumeSfx !== undefined) state.volumeSfx = s.volumeSfx;
+    state.ammo = s.ammo || 0;
+    state.maxAmmo = s.maxAmmo || 12;
+    if (state.ammo > state.maxAmmo) state.ammo = state.maxAmmo;
+  } catch(e) {}
+}
+
+/* ═══════════════════════════ Scene Features ═══════════════════════════ */
+function addPlayer() {
+  state.scene.player = true;
+  playerEl.style.display = 'block';
+  playerEl.style.bottom = 'auto'; playerEl.style.top = 'auto';
+  playerEl.style.left = '40%';
+  playerEl.style.top = (scene.getBoundingClientRect().height - 100) + 'px';
+  // Init player position
+  queueMicrotask(() => {
+    const r = playerEl.getBoundingClientRect(), s = scene.getBoundingClientRect();
+    state.playerPos.x = r.left - s.left; state.playerPos.y = r.top - s.top;
+    if (state.scene.movement) addChat('🕹️ Use WASD / Arrow keys to move!', 'ai');
+    else addChat('🕹️ Player spawned! Try "move" to enable controls.', 'ai');
+  });
+}
+
+function addMovement() {
+  if (state.scene.movement) return;
+  state.scene.movement = true;
+  addChat('🕹️ WASD / Arrow keys now control the player!', 'ai');
+  playerEl.style.boxShadow = '0 0 0 2px rgba(0,204,136,0.3)';
+}
+
+function addAudio() {
+  if (state.scene.audio) return;
+  state.scene.audio = true;
+  unlockUI('audio');
+}
+
+function addBullets() {
+  if (state.scene.bullets) return;
+  state.scene.bullets = true;
+  if (state.ammo === undefined || state.ammo === 0) state.ammo = state.maxAmmo;
+  addChat('🔫 Ammo system online! Squash bugs to reload. (' + state.maxAmmo + ' rounds)', 'ai');
+}
+
+function addJump() {
+  state.scene.jump = true;
+  if (state.scene.player) playerEl.classList.add('jump');
+  addFeatureEl('jump', '💨', 'Jump');
+}
+
+function addDJump() {
+  state.scene.djump = true;
+  if (state.scene.player) playerEl.classList.add('djump');
+  addFeatureEl('djump', '💨💨', 'Double Jump');
+}
+
+function addDash() {
+  state.scene.dash = true;
+  if (state.scene.player) playerEl.classList.add('dash');
+  addFeatureEl('dash', '💨➡️', 'Dash');
+}
+
+function addEnemies() {
+  state.scene.enemies = true;
+  for (let i = 0; i < 3; i++) {
+    addFeatureEl('enemy_'+i, '👾', '', {
+      className:'enemy-el scene-el', bottom: 48 + Math.random()*20,
+      left: 60 + Math.random() * 30 + '%', animDelay: Math.random() * 2
+    });
+  }
+}
+
+function addPlatforms() {
+  state.scene.platforms = true;
+  if (document.querySelector('.platform-el')) return;
+  for (let i = 0; i < 3; i++) {
+    const el = document.createElement('div');
+    el.className = 'platform-el';
+    el.style.bottom = (60 + i * 40) + 'px';
+    el.style.left = (10 + i * 28) + '%';
+    el.style.width = (60 + Math.random() * 40) + 'px';
+    scene.appendChild(el);
+  }
+}
+
+function addPowerups() {
+  state.scene.powerups = true;
+  $('active-effects').style.display = '';
+  for (let i = 0; i < 2; i++) {
+    addFeatureEl('powerup_'+i, '⭐', '', {
+      className:'powerup-el scene-el', bottom: 100 + Math.random()*60,
+      left: 15 + Math.random()*60 + '%'
+    });
+  }
+}
+
+function addCoins() {
+  state.scene.coins = true;
+  for (let i = 0; i < 5; i++) {
+    addFeatureEl('coin_'+i, '🪙', '', {
+      className:'coin-el scene-el', bottom: 42 + Math.random()*30,
+      left: 5 + Math.random()*80 + '%', animDelay: Math.random() * 3
+    });
+  }
+}
+
+function addScore() {
+  state.scene.score = true;
+  sceneScore.style.opacity = '1';
+}
+
+function addHealth() {
+  state.scene.health = true;
+  sceneHealth.style.opacity = '1';
+}
+
+function addSpeed() {
+  state.scene.speed = true;
+  if (document.getElementById('speed-lines')) return;
+  const lines = document.createElement('div');
+  lines.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:2;background:repeating-linear-gradient(90deg,transparent,transparent 30px,rgba(0,204,136,0.03) 30px,rgba(0,204,136,0.03) 32px);animation:speedLines 0.5s linear infinite';
+  lines.id = 'speed-lines';
+  scene.appendChild(lines);
+  if (!document.getElementById('speed-style')) {
+    const style = document.createElement('style');
+    style.textContent = '@keyframes speedLines{0%{transform:translateX(0)}100%{transform:translateX(32px)}}';
+    style.id = 'speed-style';
+    document.head.appendChild(style);
+  }
+}
+
+function addWeapon() {
+  state.scene.weapon = true;
+  document.getElementById('game').classList.add('gun-ready');
+  if (document.querySelector('#player-el .equip-slot')) return;
+  const gun = document.createElement('div');
+  gun.className = 'equip-slot';
+  gun.dataset.equip = 'weapon';
+  gun.textContent = '🔫';
+  gun.style.right = '-4px';
+  gun.style.top = '4px';
+  gun.style.transform = 'rotate(0deg)';
+  playerEl.appendChild(gun);
+  addChat('🖱️ Click / Space to shoot bugs!', 'ai');
+}
+
+function addBoss() {
+  state.scene.boss = true;
+  addFeatureEl('boss', '🐉', '', {
+    className:'boss-el scene-el', bottom: 55, right: '15%', left: 'auto'
+  });
+}
+
+function addLevels() {
+  state.scene.levels = true;
+  sceneLevel.style.opacity = '1';
+  sceneLevel.textContent = 'LEVEL ' + (state.features.size + 1);
+}
+
+function addMusic() {
+  state.scene.music = true;
+  for (let i = 0; i < 3; i++) {
+    addFeatureEl('music_'+i, ['🎵','🎶','🎵'][i], '', {
+      className:'music-el scene-el', top: 20 + i*25 + '%',
+      left: 10 + i*30 + '%', animDelay: i * 0.5
+    });
+  }
+  // Start ambient background drone (always start, volume handled separately)
+  if (!window._bgMusicStarted) {
+    try {
+      window._bgMusicStarted = true;
+      const ctx = getAudio();
+      if (ctx.state === 'suspended') ctx.resume().catch(()=>{});
+      // Use audible frequencies (110Hz + 165Hz + soft pad at 330Hz)
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(110, ctx.currentTime);
+      osc.frequency.linearRampToValueAtTime(110.5, ctx.currentTime + 4);
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(600, ctx.currentTime);
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 2);
+      gain._origGain = 0.08;
+      osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      osc.start();
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(165, ctx.currentTime);
+      osc2.frequency.linearRampToValueAtTime(164.5, ctx.currentTime + 5);
+      gain2.gain.setValueAtTime(0, ctx.currentTime);
+      gain2.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 3);
+      gain2._origGain = 0.05;
+      osc2.connect(gain2); gain2.connect(ctx.destination);
+      osc2.start();
+      window._bgMusicNodes = { ctx, gainNodes: [gain, gain2], nodes: [osc, gain, filter, osc2, gain2] };
+      // Apply current volume settings
+      setMusicMute(state.muted);
+      addChat('🎵 Ambient background drone activated...', 'ai');
+    } catch(e) { console.warn('bg music:', e); }
+  }
+}
+
+function addParticles() {
+  state.scene.particles = true;
+  if (document.querySelector('.particle-el')) return;
+  for (let i = 0; i < 20; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle-el';
+    p.style.left = Math.random() * 100 + '%';
+    p.style.top = 10 + Math.random() * 60 + '%';
+    const colors = ['#00cc88','#44ffaa','#00ff88','#66ffcc'];
+    p.style.background = colors[i % colors.length];
+    p.style.animation = `particleFloat ${2 + Math.random() * 3}s ease-in-out infinite`;
+    p.style.animationDelay = Math.random() * 2 + 's';
+    scene.appendChild(p);
+  }
+  if (!document.getElementById('particle-style')) {
+    const style = document.createElement('style');
+    style.id = 'particle-style';
+    style.textContent = '@keyframes particleFloat{0%,100%{transform:translateY(0) scale(1);opacity:0.3}50%{transform:translateY(-20px) scale(1.5);opacity:0.7}}';
+    document.head.appendChild(style);
+  }
+}
+
+function addClouds() {
+  state.scene.clouds = true;
+  for (let i = 0; i < 3; i++) {
+    addFeatureEl('cloud_'+i, '☁️', '', {
+      className:'cloud-el scene-el', top: 5 + i*8 + '%',
+      left: -10 + i*15 + '%', animDelay: i * 3 + 's'
+    });
+  }
+}
+
+function addTrees() {
+  state.scene.trees = true;
+  for (let i = 0; i < 2; i++) {
+    addFeatureEl('tree_'+i, '🌳', '', {
+      className:'tree-el scene-el', bottom: 42, left: 15 + i*55 + '%'
+    });
+  }
+}
+
+function addWater() {
+  state.scene.water = true;
+  if (document.querySelector('.water-el')) return;
+  const el = document.createElement('div');
+  el.className = 'water-el';
+  scene.appendChild(el);
+}
+
+function addBackground() {
+  state.scene.bgColor = true;
+  const colors = [
+    '#0a0a2e','#1a0a2e','#0a2e1a','#2e1a0a','#0a1a3e','#1a2e2e','#2e0a1a'
+  ];
+  const bg = colors[Math.floor(Math.random() * colors.length)];
+  document.getElementById('scene-bg').style.background =
+    `linear-gradient(180deg, ${bg} 0%, #001a0a 100%)`;
+}
+
+function addGravity() {
+  if (state.scene.gravity) return;
+  state.scene.gravity = true;
+  addFeatureEl('gravity', '🌍', 'Gravity', { fontSize:'1.2rem', bottom:80, left:'70%', animDelay:0 });
+  addChat('🌍 Bugs now affected by gravity!', 'ai');
+}
+
+let shieldEl = null;
+function addShield() {
+  if (state.scene.shield) return;
+  state.scene.shield = true;
+  if (shieldEl) return;
+  shieldEl = document.createElement('div');
+  shieldEl.className = 'shield-el';
+  scene.appendChild(shieldEl);
+  addChat('🛡️ Shield bubble active! Bugs that touch it are zapped!', 'ai');
+}
+
+let stormActive = false;
+function addStorm() {
+  if (state.scene.storm) return;
+  state.scene.storm = true;
+  stormActive = true;
+  addFeatureEl('storm', '⛈️', 'Storm', { fontSize:'1.4rem', top:'2%', right:'5%', animDelay:0 });
+  addChat('⛈️ Storm brewing! Lightning may strike bugs!', 'ai');
+}
+
+/* ═══════════════════════════ UI Unlock Handlers ═══════════════════════════ */
+function unlockUI(key, silent) {
+  state.scene['ui_' + key] = true;
+  if (key === 'achievements') {
+    $('achieve-btn').style.display = '';
+    if (!silent) addChat('🏆 Achievement tracking unlocked! Check the 🏆 button.', 'ai');
+  } else if (key === 'stats') {
+    $('stats-btn').style.display = '';
+    if (!silent) addChat('📊 Stats panel unlocked! Press S or click 📊.', 'ai');
+  } else if (key === 'mute') {
+    $('mute-btn').style.display = '';
+    if (!silent) addChat('🔊 Sound controls unlocked! Press M to mute.', 'ai');
+  } else if (key === 'reset') {
+    $('reset-btn').style.display = '';
+    if (!silent) addChat('🗑️ Reset button unlocked! Be careful!', 'ai');
+  } else if (key === 'combo') {
+    $('combo-meter').style.display = '';
+    state.scene.ui_streak = true;
+    $('streak-item').style.display = '';
+    if (!silent) addChat('💫 Combo system unlocked! Quick squashes build multiplier!', 'ai');
+  } else if (key === 'streak') {
+    state.scene.ui_streak = true;
+    $('streak-item').style.display = '';
+    if (!silent) addChat('🔥 Streak counter unlocked!', 'ai');
+  } else if (key === 'mood') {
+    $('mood-icon').style.display = '';
+    if (!silent) addChat('😊 AI Mood display unlocked! Mood affects score.', 'ai');
+  } else if (key === 'list') {
+    $('list-btn').style.display = '';
+    if (!silent) addChat('📋 Feature list unlocked! Browse all discoverable features.', 'ai');
+  } else if (key === 'settings') {
+    $('settings-btn').style.display = '';
+    if (!silent) addChat('⚙️ Settings panel unlocked! Configure your game.', 'ai');
+  } else if (key === 'audio') {
+    $('audio-btn').style.display = '';
+    if (!silent) addChat('🔊 Audio mixer unlocked! Adjust volumes independently.', 'ai');
+  }
+  updateUI();
+  saveState();
+}
+
+function addFeatureEl(id, content, tooltip, opts) {
+  if (document.getElementById('fe_' + id)) return;
+  opts = opts || {};
+  const el = document.createElement('div');
+  el.id = 'fe_' + id;
+  el.className = opts.className || 'scene-el';
+  el.textContent = content;
+  if (tooltip) el.title = tooltip;
+  if (opts.bottom !== undefined) el.style.bottom = (typeof opts.bottom === 'number' ? opts.bottom + 'px' : opts.bottom);
+  if (opts.top !== undefined) el.style.top = opts.top;
+  if (opts.left !== undefined) el.style.left = opts.left;
+  if (opts.right !== undefined) el.style.right = opts.right;
+  if (opts.fontSize) el.style.fontSize = opts.fontSize;
+  if (opts.animDelay) el.style.animationDelay = typeof opts.animDelay === 'number' ? opts.animDelay + 's' : opts.animDelay;
+  scene.appendChild(el);
+}
+
+/* ═══════════════════════════ Prompt Processing ═══════════════════════════ */
+function submitPrompt() {
+  const text = promptInput.value.trim();
+  if (!text || text.length < 2) return;
+  promptInput.value = '';
+  state.busy = true;
+  promptInput.disabled = true;
+  sendBtn.disabled = true;
+
+  const lower = text.toLowerCase();
+  addChat('> ' + text, 'prompt');
+
+  // Find matching handler — prefer longest/specific match
+  let matched = null, handler = null, bestLen = 0;
+  for (const [key, h] of Object.entries(PROMPT_HANDLERS)) {
+    for (const w of h.words) {
+      if (lower.includes(w) && w.length > bestLen) { matched = key; handler = h; bestLen = w.length; }
+    }
+  }
+
+  thinkingEl.classList.add('show');
+  const thinkTime = 400 + Math.random() * 500;
+
+  setTimeout(() => {
+    thinkingEl.classList.remove('show');
+
+    if (handler && !state.scene[matched] && !state.features.has(matched)) {
+      // Check dependencies
+      const def = FEATURE_REGISTRY[matched];
+      if (def && def.deps) {
+        const missing = def.deps.filter(d => !state.scene[d]);
+        if (missing.length > 0) {
+          addChat('🤖 Need ' + missing.join(' + ') + ' first!', 'ai');
+          spawnBugs(1 + Math.floor(Math.random() * 2));
+          state.promptCount++; updateUI();
+          state.busy = false; promptInput.disabled = false; sendBtn.disabled = false; promptInput.focus();
+          return;
+        }
+      }
+      const response = handler.msg;
+      addChat('🤖 ' + response, 'ai');
+      handler.fn();
+      state.features.add(matched);
+      state.allFeatures.push(matched);
+
+      // Spawn bugs
+      spawnBugs(handler.bugs);
+    } else {
+      // Generic response for unknown or repeated features
+      if (handler && state.scene[matched]) {
+        addChat('🤖 Already added that one! Try something new.', 'ai');
+      } else {
+        addChat('🤖 Interesting! ' + RESPONSES[Math.floor(Math.random() * RESPONSES.length)], 'ai');
+      }
+      // Still spawn a couple bugs
+      spawnBugs(1 + Math.floor(Math.random() * 2));
+    }
+
+    state.promptCount++;
+    updateUI();
+  }, thinkTime);
+}
+
+/* ═══════════════════════════ Bug System ═══════════════════════════ */
+function spawnBugs(count) {
+  const sceneRect = scene.getBoundingClientRect();
+  const engineEl = document.getElementById('engine-core');
+  const engineRect = engineEl.getBoundingClientRect();
+  const targetX = engineRect.left - sceneRect.left + engineRect.width / 2;
+  const targetY = engineRect.top - sceneRect.top + engineRect.height / 2;
+
+  const speed = state.bugSpeed + state.bugWaves * 0.02;
+  const wave = state.bugWaves;
+
+  // Boss wave every 5 waves
+  if (wave > 0 && wave % 5 === 0) {
+    spawnBoss(targetX, targetY);
+  }
+
+  for (let i = 0; i < count; i++) {
+    const bug = document.createElement('div');
+    bug.className = 'bug';
+
+    const types = ['normal'];
+    if (wave >= 3) types.push('armored');
+    if (wave >= 2) types.push('fast');
+    if (wave >= 4) types.push('stealth');
+    const type = types[Math.floor(Math.random() * types.length)];
+
+    const BUG_MAP = { normal:'🐛', armored:'🪲', fast:'🦗', stealth:'🦟' };
+    bug.textContent = BUG_MAP[type];
+    if (type !== 'normal') bug.classList.add(type);
+
+    let x, y;
+    const edge = Math.floor(Math.random() * 4);
+    const pad = 30;
+    if (edge === 0) { x = pad + Math.random() * (sceneRect.width - pad * 2); y = -pad; }
+    else if (edge === 1) { x = sceneRect.width + pad; y = Math.random() * sceneRect.height * 0.7; }
+    else if (edge === 2) { x = pad + Math.random() * (sceneRect.width - pad * 2); y = sceneRect.height + pad; }
+    else { x = -pad; y = Math.random() * sceneRect.height * 0.7; }
+
+    bug.style.left = x + 'px';
+    bug.style.top = y + 'px';
+    bug.dataset.x = x;
+    bug.dataset.y = y;
+    bug.dataset.targetX = targetX;
+    bug.dataset.targetY = targetY;
+
+    let spd = speed + Math.random() * 0.1;
+    if (type === 'fast') spd *= 1.8;
+    bug.dataset.speed = spd;
+    bug.dataset.alive = 'true';
+    bug.dataset.wobble = (Math.random() * 1000).toString();
+    bug.dataset.type = type;
+    if (type === 'armored') bug.dataset.armor = '2';
+
+    bug.addEventListener('click', e => { squashBug(bug, e); });
+
+    scene.appendChild(bug);
+    state.bugs.push(bug);
+  }
+  state.bugWaves++;
+  state.totalWaves++;
+  if (wave % 5 !== 0) addChat('🐛 ' + count + ' bug' + (count > 1 ? 's' : '') + ' appeared! ', 'warn');
+}
+
+function spawnBoss(tx, ty) {
+  const bug = document.createElement('div');
+  bug.className = 'bug boss';
+  bug.textContent = '🐜';
+  bug.dataset.boss = 'true';
+  bug.dataset.bossHp = '5';
+
+  const x = 30 + Math.random() * (scene.getBoundingClientRect().width - 60);
+  bug.style.left = x + 'px';
+  bug.style.top = '-40px';
+  bug.dataset.x = x;
+  bug.dataset.y = -40;
+  bug.dataset.targetX = tx;
+  bug.dataset.targetY = ty;
+  bug.dataset.speed = 0.15 + state.bugWaves * 0.005;
+  bug.dataset.alive = 'true';
+  bug.dataset.wobble = (Math.random() * 1000).toString();
+  bug.dataset.type = 'boss';
+
+  const hpBar = document.createElement('div');
+  hpBar.className = 'hp-bar';
+  const hpFill = document.createElement('div');
+  hpFill.className = 'hp-fill';
+  hpFill.style.width = '100%';
+  hpBar.appendChild(hpFill);
+  bug.appendChild(hpBar);
+  bug.dataset.hpFill = '5';
+
+  bug.addEventListener('click', e => { squashBug(bug, e); });
+
+  scene.appendChild(bug);
+  state.bugs.push(bug);
+  state.bossWaves++;
+  addChat('👑 BOSS BUG APPEARED! 🐜 It\'s HUGE!', 'err');
+  showToast('👑 BOSS BUG!');
+}
+
+function squashBug(bug, event) {
+  if (bug.dataset.alive !== 'true') return;
+
+  const isBoss = bug.dataset.boss === 'true';
+
+  // Armored bugs need 2 clicks
+  if (bug.dataset.type === 'armored') {
+    let armor = parseInt(bug.dataset.armor || '2');
+    armor--;
+    bug.dataset.armor = armor;
+    bug.classList.add('hit-armor');
+    setTimeout(() => bug.classList.remove('hit-armor'), 150);
+    const hit = document.createElement('div');
+    hit.className = 'bug-hit';
+    hit.textContent = '🛡️';
+    hit.style.left = bug.style.left;
+    hit.style.top = (parseFloat(bug.dataset.y) - 8) + 'px';
+    scene.appendChild(hit);
+    setTimeout(() => hit.remove(), 600);
+    if (armor > 0) return;
+  }
+
+  // Boss bug: reduce HP
+  if (isBoss) {
+    let hp = parseInt(bug.dataset.bossHp || '5');
+    hp--;
+    bug.dataset.bossHp = hp;
+    const fill = bug.querySelector('.hp-fill');
+    if (fill) fill.style.width = (hp / 5 * 100) + '%';
+    bug.classList.add('hit-armor');
+    setTimeout(() => bug.classList.remove('hit-armor'), 100);
+
+    const hit = document.createElement('div');
+    hit.className = 'bug-hit';
+    hit.textContent = '💥';
+    hit.style.left = (parseFloat(bug.dataset.x) - 5) + 'px';
+    hit.style.top = (parseFloat(bug.dataset.y) - 15) + 'px';
+    scene.appendChild(hit);
+    setTimeout(() => hit.remove(), 600);
+
+    // Spawn a mini-bug on hit
+    if (hp > 0) {
+      spawnMiniBug(parseFloat(bug.dataset.x), parseFloat(bug.dataset.y));
+    } else {
+      state.bossKills = (state.bossKills || 0) + 1;
+      state.totalSquashed = (state.totalSquashed || 0) + 1;
+    }
+    playSquash();
+    if (hp > 0) return;
+  }
+
+  bug.dataset.alive = 'false';
+  bug.classList.add('squashed');
+
+  // Combo
+  const now = Date.now();
+  if (now - state.combo.timer < 3000) {
+    state.combo.count++;
+    state.combo.multiplier = Math.min(10, 1 + state.combo.count * 0.5);
+  } else {
+    state.combo.count = 0;
+    state.combo.multiplier = 1;
+  }
+  state.combo.timer = now;
+  if (state.combo.count > state.combo.maxCombo) state.combo.maxCombo = state.combo.count;
+
+  // Ammo refill on squash
+  if (state.scene.bullets) {
+    state.ammo = Math.min(state.maxAmmo, state.ammo + 2);
+  }
+
+  const moodBonus = getMoodBonus();
+  const dblBonus = (state.effects.double && Date.now() < state.effects.double) ? 2 : 1;
+  const points = Math.round(10 * moodBonus * state.combo.multiplier * dblBonus);
+  state.squashed++;
+  state.totalSquashed = (state.totalSquashed || 0) + 1;
+  state.score += points;
+
+  // Squash particles
+  spawnSquashParticles(parseFloat(bug.dataset.x), parseFloat(bug.dataset.y));
+
+  // Floating score text
+  showFloatScore(parseFloat(bug.dataset.x), parseFloat(bug.dataset.y), points, state.combo.multiplier);
+
+  // Hit effect
+  const hit = document.createElement('div');
+  hit.className = 'bug-hit';
+  hit.textContent = '💥';
+  hit.style.left = bug.style.left;
+  hit.style.top = (parseFloat(bug.dataset.y) - 10) + 'px';
+  scene.appendChild(hit);
+  setTimeout(() => hit.remove(), 600);
+
+  updateMood();
+  updateUI();
+  playSquash();
+
+  setTimeout(() => {
+    bug.remove();
+    state.bugs = state.bugs.filter(b => b !== bug);
+  }, 250);
+}
+
+function spawnMiniBug(x, y) {
+  const bug = document.createElement('div');
+  bug.className = 'bug';
+  bug.textContent = '🦟';
+  bug.classList.add('stealth');
+  const angle = Math.random() * Math.PI * 2;
+  const dist = 30 + Math.random() * 20;
+  bug.style.left = (x + Math.cos(angle) * dist) + 'px';
+  bug.style.top = (y + Math.sin(angle) * dist) + 'px';
+  bug.dataset.x = x + Math.cos(angle) * dist;
+  bug.dataset.y = y + Math.sin(angle) * dist;
+  bug.dataset.targetX = parseFloat(document.getElementById('engine-core').dataset.tx || '0');
+  bug.dataset.targetY = parseFloat(document.getElementById('engine-core').dataset.ty || '0');
+  bug.dataset.speed = 0.4 + Math.random() * 0.2;
+  bug.dataset.alive = 'true';
+  bug.dataset.wobble = (Math.random() * 1000).toString();
+  bug.dataset.type = 'stealth';
+  bug.addEventListener('click', e => { squashBug(bug, e); });
+  scene.appendChild(bug);
+  state.bugs.push(bug);
+  addChat('🦟 A mini-bug spawned from the boss!', 'warn');
+}
+
+/* ═══════════════════════════ Power-ups ═══════════════════════════ */
+const POWERUP_TYPES = [
+  { type:'freeze', icon:'❄️', label:'Freeze', duration:3000, desc:'Freeze bugs for 3s' },
+  { type:'bomb',   icon:'💣', label:'Bomb',   duration:0,     desc:'Kill all bugs!' },
+  { type:'double', icon:'⚡', label:'2x Score',duration:10000, desc:'Double score 10s' },
+];
+
+function spawnPowerup() {
+  if (state.powerupEl) return;
+  if (state.bugs.length === 0) return;
+  const sceneRect = scene.getBoundingClientRect();
+  const pType = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+  const el = document.createElement('div');
+  el.className = 'powerup';
+  el.dataset.type = pType.type;
+  el.innerHTML = `<div class="glow"></div>${pType.icon}`;
+  el.title = pType.desc;
+  el.style.left = (20 + Math.random() * (sceneRect.width - 60)) + 'px';
+  el.style.top = (20 + Math.random() * (sceneRect.height * 0.6)) + 'px';
+  el.addEventListener('click', e => { collectPowerup(pType, el); e.stopPropagation(); });
+  scene.appendChild(el);
+  state.powerupEl = el;
+  state.powerupTimer = Date.now() + 8000;
+}
+
+function collectPowerup(pType, el) {
+  if (!state.powerupEl) return;
+  el.remove();
+  state.powerupEl = null;
+  state.powerupsCollected = (state.powerupsCollected || 0) + 1;
+  if (pType.type === 'freeze') {
+    state.effects.freeze = Date.now() + 3000;
+    showToast('❄️ Freeze! Bugs slowed!');
+    addChat('❄️ Freeze activated! Bugs are frozen!', 'ai');
+    document.querySelectorAll('.bug').forEach(b => b.style.animationPlayState = 'paused');
+  } else if (pType.type === 'bomb') {
+    state.effects.bomb = Date.now();
+    showToast('💣 Bomb! All bugs destroyed!');
+    addChat('💣 Bug bomb deployed!', 'ai');
+    const bugs = [...state.bugs];
+    bugs.forEach(b => { if (b.dataset.alive === 'true') killBug(b); });
+    screenShake();
+  } else if (pType.type === 'double') {
+    state.effects.double = Date.now() + 10000;
+    showToast('⚡ 2x Score for 10s!');
+    addChat('⚡ Double score activated!', 'ai');
+  }
+  updateActiveEffects();
+  playPowerup();
+  checkAchievements();
+  saveState();
+}
+
+function killBug(bug) {
+  if (bug.dataset.alive !== 'true') return;
+  bug.dataset.alive = 'false';
+  bug.classList.add('squashed');
+  spawnSquashParticles(parseFloat(bug.dataset.x), parseFloat(bug.dataset.y));
+  bug.remove();
+  state.bugs = state.bugs.filter(b => b !== bug);
+}
+
+function updateActiveEffects() {
+  const bar = document.getElementById('active-effects');
+  const now = Date.now();
+  const active = [];
+  if (state.effects.freeze && now < state.effects.freeze) active.push({ icon:'❄️', label:'Freeze', until:state.effects.freeze });
+  if (state.effects.bomb) {} // one-shot, no timer display
+  if (state.effects.double && now < state.effects.double) active.push({ icon:'⚡', label:'2x', until:state.effects.double });
+  bar.innerHTML = active.map(a => `<div class="active-eff show"><span>${a.icon} ${a.label}</span><span class="timer">${Math.ceil((a.until - now)/1000)}s</span></div>`).join('');
+  if (active.length === 0) bar.innerHTML = '';
+}
+
+/* ═══════════════════════════ Squash Particles ═══════════════════════════ */
+function spawnSquashParticles(x, y) {
+  const colors = ['#00cc88','#44ffaa','#00ff88','#66ffcc','#ffd700','#ff6644'];
+  for (let i = 0; i < 8; i++) {
+    const p = document.createElement('div');
+    p.className = 'squash-particle';
+    const angle = (i / 8) * Math.PI * 2 + Math.random() * 0.3;
+    const dist = 20 + Math.random() * 20;
+    p.style.setProperty('--dx', Math.cos(angle) * dist * (Math.random() > 0.5 ? 1 : -1) + 'px');
+    p.style.setProperty('--dy', Math.sin(angle) * dist * (Math.random() > 0.5 ? 1 : -1) + 'px');
+    p.style.background = colors[i % colors.length];
+    p.style.left = x + 'px';
+    p.style.top = y + 'px';
+    scene.appendChild(p);
+    setTimeout(() => p.remove(), 500);
+  }
+}
+
+/* ═══════════════════════════ Shooting ═══════════════════════════ */
+function shoot() {
+  if (state.busy) return;
+  if (!state.scene.weapon) return;
+  if (state.shootCooldown > Date.now()) return;
+  if (state.bugs.length === 0) return;
+  if (!state.scene.player) return;
+  // Ammo check
+  if (state.scene.bullets && state.ammo <= 0) {
+    showToast('🔫 No ammo! Squash bugs to reload.');
+    return;
+  }
+  state.shootCooldown = Date.now() + 250;
+  if (state.scene.bullets) { state.ammo--; updateUI(); }
+  const p = state.playerPos;
+  const mx = state.mouseX, my = state.mouseY;
+  const dx = mx - p.x, dy = my - p.y;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  if (dist < 5) return;
+  const el = document.createElement('div');
+  el.className = 'projectile';
+  el.textContent = '💥';
+  el.dataset.x = p.x; el.dataset.y = p.y;
+  el.dataset.vx = (dx / dist) * 8;
+  el.dataset.vy = (dy / dist) * 8;
+  el.style.left = p.x + 'px'; el.style.top = p.y + 'px';
+  scene.appendChild(el);
+  state.projectiles.push(el);
+  for (let i = 0; i < 3; i++) {
+    const t = document.createElement('div');
+    t.className = 'proj-trail';
+    t.style.left = (p.x - 2 + Math.random()*4) + 'px';
+    t.style.top = (p.y - 2 + Math.random()*4) + 'px';
+    scene.appendChild(t);
+    setTimeout(() => t.remove(), 300);
+  }
+  if (!state.muted) {
+    try {
+      const ctx = getAudio();
+      const vol = getSfxVol();
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'square'; o.connect(g); g.connect(ctx.destination);
+      o.frequency.setValueAtTime(800, ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(200, ctx.currentTime+0.06);
+      g.gain.setValueAtTime(0.03 * vol, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.08);
+      o.start(); o.stop(ctx.currentTime+0.08);
+    } catch(e) {}
+  }
+}
+
+function updateProjectiles() {
+  const alive = [];
+  for (const el of state.projectiles) {
+    let x = parseFloat(el.dataset.x) + parseFloat(el.dataset.vx);
+    let y = parseFloat(el.dataset.y) + parseFloat(el.dataset.vy);
+    el.dataset.x = x; el.dataset.y = y;
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    if (tickCount % 2 === 0) {
+      const t = document.createElement('div');
+      t.className = 'proj-trail';
+      t.style.left = x + 'px'; t.style.top = y + 'px';
+      scene.appendChild(t);
+      setTimeout(() => t.remove(), 300);
+    }
+    const sr = scene.getBoundingClientRect();
+    if (x < -20 || x > sr.width + 20 || y < -20 || y > sr.height + 20) {
+      el.remove(); continue;
+    }
+    let hit = false;
+    for (const bug of state.bugs) {
+      if (bug.dataset.alive !== 'true') continue;
+      const bx = parseFloat(bug.dataset.x), by = parseFloat(bug.dataset.y);
+      if (Math.abs(x - bx) < 16 && Math.abs(y - by) < 16) {
+        killBug(bug);
+        spawnSquashParticles(bx, by);
+        state.squashed++;
+        state.totalSquashed = (state.totalSquashed || 0) + 1;
+        state.score += 10;
+        showFloatScore(bx, by, 10, 1);
+        updateUI();
+        hit = true;
+        break;
+      }
+    }
+    if (hit) { el.remove(); }
+    else { alive.push(el); }
+  }
+  state.projectiles = alive;
+}
+
+function showFloatScore(x, y, points, mult) {
+  const el = document.createElement('div');
+  el.className = 'float-score';
+  el.textContent = mult > 1 ? '+' + points + ' x' + mult.toFixed(1) : '+' + points;
+  el.style.color = mult > 2 ? '#ffd700' : mult > 1 ? '#00ff88' : '#00cc88';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  scene.appendChild(el);
+  setTimeout(() => el.remove(), 700);
+}
+
+/* ═══════════════════════════ Screen Shake ═══════════════════════════ */
+let shakeTimeout = null;
+function screenShake() {
+  const game = document.getElementById('game');
+  game.classList.remove('shake');
+  void game.offsetWidth;
+  game.classList.add('shake');
+  clearTimeout(shakeTimeout);
+  shakeTimeout = setTimeout(() => game.classList.remove('shake'), 150);
+}
+
+/* ═══════════════════════════ Bug Trails ═══════════════════════════ */
+let trailCounter = 0;
+function spawnBugTrail(x, y, color) {
+  trailCounter++;
+  if (trailCounter % 3 !== 0) return;
+  const t = document.createElement('div');
+  t.className = 'bug-trail';
+  t.style.left = x + 'px';
+  t.style.top = y + 'px';
+  t.style.background = color || 'rgba(0,204,136,0.3)';
+  scene.appendChild(t);
+  setTimeout(() => t.remove(), 600);
+}
+
+function bugReachedEngine(bug) {
+  if (bug.dataset.alive !== 'true') return;
+  bug.dataset.alive = 'false';
+  bug.remove();
+  state.bugs = state.bugs.filter(b => b !== bug);
+  state.missed++;
+  state.score = Math.max(0, state.score - 5);
+  state.streak = 0;
+  updateUI();
+
+  // Glitch effects
+  glitchOv.classList.add('active');
+  setTimeout(() => glitchOv.classList.remove('active'), 300);
+  glitchEl.classList.add('active');
+  setTimeout(() => glitchEl.classList.remove('active'), 200);
+
+  addChat('⚠️ ' + GLITCH_RESPONSES[Math.floor(Math.random() * GLITCH_RESPONSES.length)], 'err');
+  showToast('💥 BUG! -5');
+  playGlitch();
+  screenShake();
+}
+
+/* ═══════════════════════════ Game Loop ═══════════════════════════ */
+let tickCount = 0;
+function tick() {
+  const sceneRect = scene.getBoundingClientRect();
+  const engineEl = document.getElementById('engine-core');
+  const engineRect = engineEl.getBoundingClientRect();
+  const targetX = engineRect.left - sceneRect.left + engineRect.width / 2;
+  const targetY = engineRect.top - sceneRect.top + engineRect.height / 2;
+  engineEl.dataset.tx = targetX;
+  engineEl.dataset.ty = targetY;
+
+  const now = Date.now();
+  const frozen = state.effects.freeze && now < state.effects.freeze;
+
+  for (const bug of state.bugs) {
+    if (bug.dataset.alive !== 'true') continue;
+    let bx = parseFloat(bug.dataset.x);
+    let by = parseFloat(bug.dataset.y);
+    const spd = parseFloat(bug.dataset.speed);
+    const wobble = parseFloat(bug.dataset.wobble);
+    const isBoss = bug.dataset.boss === 'true';
+    const dx = targetX - bx;
+    const dy = targetY - by;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist < 5) {
+      bugReachedEngine(bug);
+      continue;
+    }
+
+    const effectiveSpeed = frozen ? spd * 0.1 : spd;
+    const w = isBoss ? 0 : Math.sin(Date.now() / 300 + wobble) * 0.6;
+    const gravityDrift = state.scene.gravity ? effectiveSpeed * 0.35 : 0;
+    const nx = bx + (dx / dist) * effectiveSpeed + w;
+    const ny = by + (dy / dist) * effectiveSpeed + gravityDrift;
+    bug.dataset.x = nx;
+    bug.dataset.y = ny;
+    bug.style.left = nx + 'px';
+    bug.style.top = ny + 'px';
+
+    if (!isBoss) {
+      bug.style.transform = `rotate(${Math.sin(Date.now() / 200 + wobble) * 10}deg)`;
+    }
+
+    // Bug trail
+    const trailColor = isBoss ? 'rgba(255,50,50,0.3)' : bug.dataset.type === 'fast' ? 'rgba(100,200,255,0.3)' : 'rgba(0,204,136,0.2)';
+    spawnBugTrail(nx, ny, trailColor);
+  }
+
+  // Shield: auto-zap bugs near engine
+  if (state.scene.shield) {
+    const shieldRadius = 50;
+    for (const bug of state.bugs) {
+      if (bug.dataset.alive !== 'true') continue;
+      const bx = parseFloat(bug.dataset.x), by = parseFloat(bug.dataset.y);
+      if (Math.abs(bx - targetX) < shieldRadius && Math.abs(by - targetY) < shieldRadius) {
+        killBug(bug);
+        state.squashed++;
+        state.totalSquashed = (state.totalSquashed || 0) + 1;
+        state.score += 5;
+        spawnSquashParticles(bx, by);
+        updateUI();
+      }
+    }
+  }
+
+  // Storm: random lightning strike on a bug
+  if (state.scene.storm && state.bugs.length > 0 && tickCount % 180 === 0 && Math.random() < 0.3) {
+    const liveBugs = state.bugs.filter(b => b.dataset.alive === 'true');
+    if (liveBugs.length > 0) {
+      const target = liveBugs[Math.floor(Math.random() * liveBugs.length)];
+      killBug(target);
+      state.squashed++;
+      state.totalSquashed = (state.totalSquashed || 0) + 1;
+      state.score += 5;
+      spawnSquashParticles(parseFloat(target.dataset.x), parseFloat(target.dataset.y));
+      // Flash effect
+      glitchEl.classList.add('active');
+      setTimeout(() => glitchEl.classList.remove('active'), 80);
+      updateUI();
+    }
+  }
+
+  // Player movement (WASD / Arrows) — gated behind 'movement' feature
+  if (state.scene.player && state.scene.movement) {
+    let dx = 0, dy = 0;
+    const k = state.keys;
+    if (k['w'] || k['ArrowUp']) dy = -state.playerSpeed;
+    if (k['s'] || k['ArrowDown']) dy = state.playerSpeed;
+    if (k['a'] || k['ArrowLeft']) dx = -state.playerSpeed;
+    if (k['d'] || k['ArrowRight']) dx = state.playerSpeed;
+
+    state.playerPos.x = Math.max(0, Math.min(sceneRect.width - 20, state.playerPos.x + dx));
+    state.playerPos.y = Math.max(0, Math.min(sceneRect.height - 40, state.playerPos.y + dy));
+    const px = state.playerPos.x, py = state.playerPos.y;
+    playerEl.style.left = px + 'px';
+    playerEl.style.top = py + 'px';
+    // Flip player based on direction
+    if (dx < 0) playerEl.style.transform = 'scaleX(-1)';
+    else if (dx > 0) playerEl.style.transform = 'scaleX(1)';
+    else if (state.mouseX < px) playerEl.style.transform = 'scaleX(-1)';
+    else playerEl.style.transform = 'scaleX(1)';
+  }
+
+  // Rotate equipment (weapon etc.) toward mouse — works even without movement feature
+  if (state.scene.player) {
+    const slots = playerEl.querySelectorAll('.equip-slot');
+    if (slots.length > 0) {
+      const px = state.playerPos.x, py = state.playerPos.y;
+      const angle = Math.atan2(state.mouseY - py, state.mouseX - px) * (180 / Math.PI);
+      slots.forEach(s => { s.style.transform = 'rotate(' + angle + 'deg)'; });
+    }
+  }
+
+  // Update projectiles
+  if (state.projectiles.length > 0) updateProjectiles();
+
+  // Power-up spawn timer (every ~8-15s) - only if powerups feature unlocked
+  if (state.scene.powerups && !state.powerupEl && state.bugs.length > 0 && tickCount % 480 === 0) {
+    if (Math.random() < 0.4) spawnPowerup();
+  }
+  // Expire uncollected power-ups
+  if (state.powerupEl && Date.now() > state.powerupTimer) {
+    state.powerupEl.remove();
+    state.powerupEl = null;
+  }
+  // Handle freeze expiration
+  if (state.effects.freeze && Date.now() > state.effects.freeze) {
+    state.effects.freeze = 0;
+    showToast('❄️ Freeze wore off!');
+  }
+  // Handle double score expiration
+  if (state.effects.double && Date.now() > state.effects.double) {
+    state.effects.double = 0;
+    showToast('⚡ 2x Score expired!');
+  }
+  // Update active effects display (every 30 ticks)
+  if (tickCount % 30 === 0) updateActiveEffects();
+
+  // Combo timer decay
+  if (state.combo.count > 0) {
+    const elapsed = Date.now() - state.combo.timer;
+    if (elapsed > 3000) {
+      state.combo.count = 0;
+      state.combo.multiplier = 1;
+      comboMeter.classList.remove('show');
+    } else {
+      comboMeter.classList.add('show');
+      comboCount.textContent = 'x' + state.combo.multiplier.toFixed(1);
+      comboTimerFill.style.width = ((3000 - elapsed) / 3000 * 100) + '%';
+    }
+  } else {
+    comboMeter.classList.remove('show');
+  }
+
+  // Check if all bugs are cleared to allow next prompt
+  if (state.bugs.length === 0 && state.busy) {
+    state.busy = false;
+    promptInput.disabled = false;
+    sendBtn.disabled = false;
+    promptInput.focus();
+    if (state.missed === 0 || state.missed === state.totalWaves - state.cleanWaves) {
+      state.cleanWaves++;
+    }
+    state.streak++;
+    if (state.streak > state.bestStreak) state.bestStreak = state.streak;
+    if (state.streak > 1) {
+      showToast('🔥 ' + state.streak + ' streak!');
+    }
+    checkAchievements();
+    updateUI();
+    saveState();
+  }
+
+  tickCount++;
+  if (tickCount % 60 === 0) {
+    updateMood();
+  }
+
+  requestAnimationFrame(tick);
+}
+
+/* ═══════════════════════════ UI & Audio ═══════════════════════════ */
+function updateUI() {
+  scoreVal.textContent = state.score;
+  squashVal.textContent = state.squashed;
+  missVal.textContent = state.missed;
+  featVal.textContent = state.features.size;
+  streakVal.textContent = state.streak;
+  updateMood();
+
+  // Update multiplier display (gate behind combo or mood discovery)
+  const multDisp = document.getElementById('mult-display');
+  if (state.scene.ui_combo || state.scene.ui_mood) {
+    multDisp.style.display = '';
+    const moodBonus = getMoodBonus();
+    const comboBonus = state.combo.multiplier;
+    const dblBonus = (state.effects.double && Date.now() < state.effects.double) ? 2 : 1;
+    const totalMult = (moodBonus * comboBonus * dblBonus).toFixed(1);
+    multVal.textContent = totalMult;
+    if (parseFloat(totalMult) > 1.5) { multDisp.style.opacity = '1'; multDisp.style.borderColor = 'rgba(255,215,0,0.3)'; }
+    else { multDisp.style.opacity = '0.4'; multDisp.style.borderColor = 'rgba(255,215,0,0.12)'; }
+  } else {
+    multDisp.style.display = 'none';
+  }
+
+  if (state.scene.score && state.squashed > 0) {
+    sceneScore.textContent = 'SCORE: ' + state.score;
+  }
+
+  // Ammo display
+  if (state.scene.bullets) {
+    ammoDisplay.style.display = '';
+    ammoVal.textContent = state.ammo + '/' + state.maxAmmo;
+  } else {
+    ammoDisplay.style.display = 'none';
+  }
+
+  if (state.features.size > 0) {
+    featList.innerHTML = [...state.features].map(f => '<span class="feat">✦ ' + f + '</span>').join('');
+  }
+}
+
+/* ═══════════════════════════ Stats & Reset ═══════════════════════════ */
+function renderStats() {
+  const totalBugs = state.totalSquashed + state.missed;
+  const accuracy = totalBugs > 0 ? Math.round(state.totalSquashed / totalBugs * 100) : 0;
+  const bossKills = state.bossKills || 0;
+  const maxCombo = state.combo.maxCombo || 0;
+  const pu = state.powerupsCollected || 0;
+  statsContent.innerHTML = `
+    <div class="stat-row"><span class="label">Score</span><span class="value">${state.score}</span></div>
+    <div class="stat-row"><span class="label">Bugs Squashed</span><span class="value">${state.squashed}</span></div>
+    <div class="stat-row"><span class="label">Bugs Missed</span><span class="value">${state.missed}</span></div>
+    <div class="stat-row"><span class="label">Accuracy</span><span class="value">${accuracy}%</span></div>
+    <div class="stat-row"><span class="label">Prompts Sent</span><span class="value">${state.promptCount}</span></div>
+    <div class="stat-row"><span class="label">Features Added</span><span class="value">${state.features.size}</span></div>
+    <div class="stat-row"><span class="label">Bug Waves</span><span class="value">${state.totalWaves}</span></div>
+    <div class="stat-row"><span class="label">Clean Waves</span><span class="value">${state.cleanWaves}</span></div>
+    <div class="stat-row"><span class="label">Boss Bugs Defeated</span><span class="value">${bossKills}</span></div>
+    <div class="stat-row"><span class="label">Best Streak</span><span class="value">${state.bestStreak}</span></div>
+    <div class="stat-row"><span class="label">Max Combo</span><span class="value">x${maxCombo.toFixed(1)}</span></div>
+    <div class="stat-row"><span class="label">Power-ups Collected</span><span class="value">${pu}</span></div>
+    <div class="stat-row"><span class="label">Achievements</span><span class="value">${Object.keys(state.achievements).length} / ${Object.keys(ACHIEVEMENTS).length}</span></div>
+    ${state.scene.bullets ? `<div class="stat-row"><span class="label">Ammo</span><span class="value">${state.ammo} / ${state.maxAmmo}</span></div>` : ''}
+  `;
+}
+
+function renderList() {
+  let html = '';
+  for (const [key, def] of Object.entries(FEATURE_REGISTRY)) {
+    const u = state.features.has(key);
+    html += `<div class="feat-row ${u ? 'unlocked' : 'locked'}">
+      <span class="icon">${u ? '🔓' : '🔒'}</span>
+      <span class="name">${key}</span>
+      <span class="desc">${def.desc || ''}</span>
+    </div>`;
+  }
+  listContent.innerHTML = html;
+}
+
+function renderSettings() {
+  settingsContent.innerHTML = `
+    <div class="set-row">
+      <span>🔊 Sound</span>
+      <span>${state.muted ? '🔇 Muted' : '🔊 On'}</span>
+    </div>
+    <div class="set-row">
+      <span>📊 Score</span>
+      <span>${state.score}</span>
+    </div>
+    <div class="set-row">
+      <span>🏆 Features Unlocked</span>
+      <span>${state.features.size}</span>
+    </div>
+    <div class="set-row">
+      <span>🐛 Bugs Squashed</span>
+      <span>${state.squashed}</span>
+    </div>
+    <div class="set-row">
+      <span>🚀 Version</span>
+      <span>1.0</span>
+    </div>
+  `;
+}
+
+function resetGame() {
+  if (!confirm('Reset all progress? This cannot be undone!')) return;
+  localStorage.removeItem(LS_KEY);
+  location.reload();
+}
+
+function addChat(text, cls) {
+  const msg = document.createElement('div');
+  msg.className = 'chat-msg ' + cls;
+  msg.innerHTML = text;
+  chatLog.appendChild(msg);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function showToast(text) {
+  toastEl.textContent = text;
+  toastEl.classList.remove('show');
+  void toastEl.offsetWidth;
+  toastEl.classList.add('show');
+  setTimeout(() => toastEl.classList.remove('show'), 1100);
+}
+
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+  return audioCtx;
+}
+function getSfxVol() { return state.muted ? 0 : state.volumeMaster * state.volumeSfx; }
+function playSquash() {
+  const vol = getSfxVol(); if (!vol) return;
+  try {
+    const ctx = getAudio();
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.setValueAtTime(600, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.06 * vol, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+    osc.start(); osc.stop(ctx.currentTime + 0.1);
+  } catch(e) {}
+}
+function playGlitch() {
+  const vol = getSfxVol(); if (!vol) return;
+  try {
+    const ctx = getAudio();
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.setValueAtTime(100, ctx.currentTime);
+    osc.frequency.setValueAtTime(50, ctx.currentTime + 0.05);
+    osc.frequency.setValueAtTime(150, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.05 * vol, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+    osc.start(); osc.stop(ctx.currentTime + 0.15);
+  } catch(e) {}
+}
+function playAchieve() {
+  const vol = getSfxVol(); if (!vol) return;
+  try {
+    const ctx = getAudio();
+    const notes = [523, 659, 784];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.08);
+      gain.gain.setValueAtTime(0.05 * vol, ctx.currentTime + i * 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.08 + 0.15);
+      osc.start(ctx.currentTime + i * 0.08); osc.stop(ctx.currentTime + i * 0.08 + 0.15);
+    });
+  } catch(e) {}
+}
+function playPowerup() {
+  const vol = getSfxVol(); if (!vol) return;
+  try {
+    const ctx = getAudio();
+    const notes = [880, 1108, 1318];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.05);
+      gain.gain.setValueAtTime(0.04 * vol, ctx.currentTime + i * 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.05 + 0.12);
+      osc.start(ctx.currentTime + i * 0.05); osc.stop(ctx.currentTime + i * 0.05 + 0.12);
+    });
+  } catch(e) {}
+}
+
+function renderAudio() {
+  audioContent.innerHTML = `
+    <div class="vol-row">
+      <label><span>🔊 Master</span><span id="vol-master-label">${Math.round(state.volumeMaster * 100)}%</span></label>
+      <input type="range" min="0" max="100" value="${state.volumeMaster * 100}" id="vol-master" data-key="volumeMaster">
+    </div>
+    <div class="vol-row">
+      <label><span>🎵 Music</span><span id="vol-music-label">${Math.round(state.volumeMusic * 100)}%</span></label>
+      <input type="range" min="0" max="100" value="${state.volumeMusic * 100}" id="vol-music" data-key="volumeMusic">
+    </div>
+    <div class="vol-row">
+      <label><span>💥 SFX</span><span id="vol-sfx-label">${Math.round(state.volumeSfx * 100)}%</span></label>
+      <input type="range" min="0" max="100" value="${state.volumeSfx * 100}" id="vol-sfx" data-key="volumeSfx">
+    </div>
+  `;
+  ['vol-master','vol-music','vol-sfx'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', () => {
+      state[el.dataset.key] = el.value / 100;
+      document.getElementById(id + '-label').textContent = Math.round(el.value) + '%';
+      updateMusicVolume();
+      saveState();
+    });
+  });
+}
+
+function getMusicGain() {
+  if (state.muted || !state.volumeMaster || !state.volumeMusic) return 0;
+  return state.volumeMaster * state.volumeMusic;
+}
+
+function updateMusicVolume() {
+  const bg = window._bgMusicNodes;
+  if (!bg || !bg.gainNodes) return;
+  const gain = getMusicGain();
+  const now = bg.ctx.currentTime;
+  bg.gainNodes.forEach(g => {
+    g.gain.cancelScheduledValues(now);
+    g.gain.setValueAtTime(gain ? g._origGain * gain : 0, now);
+  });
+}
+
+function setMusicMute(muted) {
+  const bg = window._bgMusicNodes;
+  if (!bg || !bg.gainNodes) return;
+  const gain = muted ? 0 : getMusicGain();
+  const now = bg.ctx.currentTime;
+  bg.gainNodes.forEach(g => {
+    g.gain.cancelScheduledValues(now);
+    g.gain.setValueAtTime(gain ? g._origGain * gain : 0, now);
+    if (!muted && gain) g.gain.linearRampToValueAtTime(g._origGain * gain, now + 0.5);
+  });
+}
+
+/* ─── Start ─── */
+loadState();
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Burping Monkey: Vision Girth</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+@font-face { font-family: 'Monaco'; src: local('Monaco'), local('Consolas'), local('Courier New'); }
+body {
+  background: #0a0a0a;
+  color: #c8c8c8;
+  font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  margin: 0;
+  padding: 20px;
+}
+#game {
+  width: 800px;
+  max-width: 100%;
+  background: #111;
+  border: 2px solid #3a3;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 0 40px rgba(50, 170, 50, 0.15);
+}
+#title {
+  text-align: center;
+  border-bottom: 1px solid #3a3;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+#title-left { text-align: center; flex: 1; }
+#title h1 { color: #3a3; font-size: 22px; letter-spacing: 3px; }
+#title h2 { color: #585; font-size: 13px; font-weight: normal; letter-spacing: 1px; }
+#music-toggle {
+  background: none;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #666;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 8px;
+  transition: all 0.15s;
+}
+#music-toggle:hover { border-color: #3a3; color: #ada; }
+#music-toggle.on { color: #ada; border-color: #3a3; }
+#stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  padding: 8px 14px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+.stat { white-space: nowrap; }
+.stat-label { color: #666; }
+.stat-val { color: #ada; font-weight: bold; }
+.stat-val.low { color: #d44; }
+.stat-val.full { color: #4d4; }
+.stat-bar {
+  display: inline-block;
+  width: 80px;
+  height: 12px;
+  background: #222;
+  border: 1px solid #333;
+  border-radius: 2px;
+  vertical-align: middle;
+  overflow: hidden;
+}
+.stat-bar-inner {
+  height: 100%;
+  background: #3a3;
+  transition: width 0.3s;
+}
+.stat-bar-inner.low { background: #a33; }
+#encounter {
+  min-height: 260px;
+  background: #161616;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+#encounter .art { font-size: 48px; margin-bottom: 8px; line-height: 1.2; }
+#encounter .name { color: #ada; font-size: 18px; margin-bottom: 4px; }
+#encounter .desc { color: #888; font-size: 13px; max-width: 500px; line-height: 1.4; }
+#encounter .enemy-hp { color: #d44; font-size: 13px; margin-top: 4px; }
+#encounter .buff-info { color: #da4; font-size: 12px; margin-top: 4px; }
+#actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+#actions button {
+  background: #1a1a1a;
+  color: #ada;
+  border: 1px solid #3a3;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex: 1;
+  min-width: 90px;
+}
+#actions button:hover:not(:disabled) { background: #2a2a2a; border-color: #4d4; color: #4d4; }
+#actions button:disabled { opacity: 0.3; cursor: default; color: #555; border-color: #333; }
+#actions button.vision-ready { border-color: #da4; color: #da4; animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+#log {
+  background: #0d0d0d;
+  border: 1px solid #222;
+  border-radius: 4px;
+  padding: 10px;
+  height: 140px;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.5;
+}
+#log::-webkit-scrollbar { width: 4px; }
+#log::-webkit-scrollbar-track { background: #111; }
+#log::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+.log-entry { margin-bottom: 2px; }
+.log-damage { color: #d44; }
+.log-heal { color: #4d4; }
+.log-info { color: #888; }
+.log-loot { color: #da4; }
+.log-combat { color: #c84; }
+.log-vision { color: #4da; }
+.log-special { color: #a4d; }
+#game-over, #win-screen {
+  text-align: center;
+  padding: 30px 20px;
+}
+#game-over h2 { color: #d44; font-size: 28px; margin-bottom: 10px; }
+#win-screen h2 { color: #4d4; font-size: 28px; margin-bottom: 10px; }
+.final-stats { color: #888; font-size: 13px; line-height: 1.6; margin: 12px 0; }
+.btn-main {
+  background: #1a1a1a; color: #ada;
+  border: 1px solid #3a3; border-radius: 4px;
+  padding: 10px 30px; font-family: inherit; font-size: 15px;
+  cursor: pointer; transition: all 0.15s; margin-top: 12px;
+}
+.btn-main:hover { background: #2a2a2a; border-color: #4d4; color: #4d4; }
+.inv-item {
+  background: #1a1a1a; border: 1px solid #333; border-radius: 3px;
+  padding: 4px 10px; margin: 2px; font-size: 12px; cursor: pointer;
+  transition: all 0.15s;
+}
+.inv-item:hover { border-color: #4d4; color: #4d4; }
+.inv-item:disabled { opacity: 0.3; cursor: default; }
+#inventory-area {
+  display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px;
+  min-height: 28px;
+}
+#title-screen {
+  text-align: center; padding: 40px 20px;
+}
+#title-screen .big-art { font-size: 72px; line-height: 1.2; margin-bottom: 10px; }
+#title-screen h1 { color: #3a3; font-size: 28px; letter-spacing: 4px; margin-bottom: 6px; }
+#title-screen h2 { color: #585; font-size: 14px; font-weight: normal; margin-bottom: 24px; }
+#title-screen .flavor { color: #666; font-size: 12px; line-height: 1.6; margin-bottom: 24px; }
+.clickable { cursor: pointer; }
+.clickable:hover { color: #4d4; }
+.vision-choice { cursor: pointer; }
+.vision-choice:hover { color: #4da; }
+@media (max-width: 600px) {
+  #game { padding: 12px; }
+  #stats { font-size: 11px; gap: 4px 10px; }
+  #encounter { min-height: 200px; padding: 12px; }
+  #actions button { padding: 6px 10px; font-size: 12px; min-width: 70px; }
+}
+</style>
+</head>
+<body>
+<div id="game">
+  <div id="title">
+    <div id="title-left">
+      <h1>BURPING MONKEY</h1>
+      <h2>⚔ Vision Girth ⚔</h2>
+    </div>
+    <button id="music-toggle">🔇</button>
+  </div>
+  <div id="app"></div>
+</div>
+<script>
+// ============================================================
+// BURPING MONKEY: VISION GIRTH - A Chance-Based Roguelike
+// ============================================================
+
+const R = () => Math.floor(Math.random() * 20) + 1;
+const RI = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const PICK = arr => arr[Math.floor(Math.random() * arr.length)];
+
+// ============================================================
+// AUDIO SYSTEM
+// ============================================================
+
+let audioCtx = null;
+let musicPlaying = false;
+let musicInterval = null;
+let musicOn = false;
+
+function initAudio() {
+  if (audioCtx) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch (e) {}
+}
+
+function playTone(freq, duration, type, volume, rampDown) {
+  if (!audioCtx) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type || 'square';
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  if (rampDown) {
+    osc.frequency.exponentialRampToValueAtTime(rampDown, audioCtx.currentTime + duration);
+  }
+  const vol = volume !== undefined ? volume : 0.08;
+  gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start(audioCtx.currentTime);
+  osc.stop(audioCtx.currentTime + duration);
+}
+
+function playNoise(duration, volume) {
+  if (!audioCtx) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const bufferSize = audioCtx.sampleRate * duration;
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+  const source = audioCtx.createBufferSource();
+  source.buffer = buffer;
+  const gain = audioCtx.createGain();
+  const vol = volume || 0.05;
+  gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  source.connect(gain);
+  gain.connect(audioCtx.destination);
+  source.start(audioCtx.currentTime);
+}
+
+function playBurp() {
+  if (!musicOn) return;
+  initAudio();
+  playTone(120, 0.25, 'sawtooth', 0.1, 50);
+  setTimeout(() => playTone(80, 0.15, 'sawtooth', 0.06, 40), 80);
+}
+
+function playHit() {
+  if (!musicOn) return;
+  initAudio();
+  playNoise(0.12, 0.06);
+  playTone(200, 0.08, 'square', 0.05);
+}
+
+function playHeal() {
+  if (!musicOn) return;
+  initAudio();
+  playTone(400, 0.15, 'sine', 0.06);
+  setTimeout(() => playTone(500, 0.15, 'sine', 0.06), 100);
+  setTimeout(() => playTone(630, 0.2, 'sine', 0.06), 200);
+}
+
+function playLoot() {
+  if (!musicOn) return;
+  initAudio();
+  playTone(880, 0.1, 'sine', 0.06);
+  setTimeout(() => playTone(1100, 0.15, 'sine', 0.06), 80);
+}
+
+function playCritical() {
+  if (!musicOn) return;
+  initAudio();
+  playTone(300, 0.1, 'square', 0.07);
+  setTimeout(() => playTone(500, 0.1, 'square', 0.07), 80);
+  setTimeout(() => playTone(800, 0.2, 'square', 0.08), 160);
+}
+
+function playDeath() {
+  if (!musicOn) return;
+  initAudio();
+  playTone(300, 0.3, 'sawtooth', 0.08, 60);
+  setTimeout(() => playTone(150, 0.4, 'sawtooth', 0.06, 30), 200);
+}
+
+function playWinSound() {
+  if (!musicOn) return;
+  initAudio();
+  const notes = [400, 500, 600, 800, 1000, 1200];
+  notes.forEach((n, i) => {
+    setTimeout(() => playTone(n, 0.2, 'sine', 0.07), i * 100);
+  });
+}
+
+function playClick() {
+  if (!musicOn) return;
+  initAudio();
+  playTone(600, 0.04, 'sine', 0.03);
+}
+
+function toggleMusic() {
+  musicOn = !musicOn;
+  const btn = document.getElementById('music-toggle');
+  if (btn) {
+    btn.textContent = musicOn ? '🔊' : '🔇';
+    btn.classList.toggle('on', musicOn);
+  }
+  if (musicOn) {
+    initAudio();
+    startBgMusic();
+  } else {
+    stopBgMusic();
+  }
+}
+
+function startBgMusic() {
+  if (!audioCtx) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (musicPlaying) return;
+  musicPlaying = true;
+
+  const melody = [262, 294, 330, 392, 440, 392, 330, 294, 330, 392, 440, 523, 440, 392, 330, 294];
+  let idx = 0;
+
+  function playNext() {
+    if (!musicPlaying || !musicOn) return;
+    const freq = melody[idx % melody.length];
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.025, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.45);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.45);
+    idx++;
+  }
+
+  playNext();
+  musicInterval = setInterval(playNext, 500);
+}
+
+function stopBgMusic() {
+  musicPlaying = false;
+  if (musicInterval) {
+    clearInterval(musicInterval);
+    musicInterval = null;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('music-toggle').addEventListener('click', toggleMusic);
+});
+
+// ============================================================
+// ENEMIES, ITEMS, EVENTS
+// ============================================================
+
+const ENEMIES = {
+  bee: {
+    name: 'Angry Bee', emoji: '🐝', hpRange: [6, 10], dmgRange: [1, 3],
+    desc: 'A buzzing menace with a nasty sting.', minFloor: 1, maxFloor: 3
+  },
+  frog: {
+    name: 'Poison Dart Frog', emoji: '🐸', hpRange: [8, 14], dmgRange: [2, 4],
+    desc: 'Tiny but deadly. One bad lick and you\'re done.', minFloor: 1, maxFloor: 4
+  },
+  viper: {
+    name: 'Jungle Viper', emoji: '🐍', hpRange: [12, 18], dmgRange: [3, 6],
+    desc: 'Slithers through the shadows, striking without warning.', minFloor: 2, maxFloor: 5
+  },
+  boar: {
+    name: 'Wild Boar', emoji: '🐗', hpRange: [16, 24], dmgRange: [4, 7],
+    desc: 'Tusks sharp, temper sharper. Charges at anything.', minFloor: 3, maxFloor: 6
+  },
+  hunter: {
+    name: 'Tribal Hunter', emoji: '🏹', hpRange: [18, 26], dmgRange: [4, 8],
+    desc: 'A seasoned tracker who never misses twice.', minFloor: 4, maxFloor: 7
+  },
+  spider: {
+    name: 'Giant Tarantula', emoji: '🕷️', hpRange: [22, 30], dmgRange: [5, 9],
+    desc: 'Hairy legs and venomous fangs. A nightmare given form.', minFloor: 5, maxFloor: 8
+  },
+  ape: {
+    name: 'Shadow Ape', emoji: '🦍', hpRange: [26, 36], dmgRange: [6, 10],
+    desc: 'A corrupted primate consumed by the jungle\'s dark magic.', minFloor: 6, maxFloor: 9
+  },
+  warden: {
+    name: 'Vision Girth Warden', emoji: '🗿', hpRange: [30, 40], dmgRange: [7, 12],
+    desc: 'Guardian of the jungle\'s deepest secrets. Its gaze pierces through chance itself.',
+    minFloor: 9, maxFloor: 10, isBoss: true
+  },
+  girth: {
+    name: 'The Girth Itself', emoji: '🌀', hpRange: [45, 55], dmgRange: [8, 15],
+    desc: 'The embodiment of Vision Girth — the force that binds fate and luck.',
+    minFloor: 10, maxFloor: 10, isBoss: true, isFinal: true
+  }
+};
+
+const ITEMS = {
+  banana: {
+    name: 'Healing Banana', emoji: '🍌', desc: 'Restores 8-12 HP.',
+    effect: g => { const h = RI(8,12); g.hp = Math.min(g.maxHp, g.hp + h); return `Healed ${h} HP!`; },
+    value: 3
+  },
+  berry: {
+    name: 'Burp Berry', emoji: '🫐', desc: '+2 Burp Power for 3 turns.',
+    effect: g => { g.buffs.push({ type: 'burpPower', value: 2, turns: 3 }); return 'Burp Power +2 for 3 turns!'; },
+    value: 4
+  },
+  nut: {
+    name: 'Lucky Nut', emoji: '🥜', desc: '+2 Luck for 3 turns.',
+    effect: g => { g.buffs.push({ type: 'luck', value: 2, turns: 3 }); return 'Luck +2 for 3 turns!'; },
+    value: 4
+  },
+  shard: {
+    name: 'Vision Shard', emoji: '💎', desc: '+25 Vision Girth.',
+    effect: g => {
+      g.visionGirth = Math.min(g.maxVg, g.visionGirth + 25);
+      return 'Vision Girth +25!';
+    },
+    value: 5
+  },
+  totem: {
+    name: 'Reroll Totem', emoji: '🏺', desc: 'Rerolls the next encounter.',
+    effect: g => { g.rerollQueued = true; return 'Reroll queued for next encounter!'; },
+    value: 5
+  },
+  ward: {
+    name: 'Girth Ward', emoji: '🛡️', desc: 'Blocks 1 hit completely.',
+    effect: g => { g.ward = true; return 'Girth Ward active! Blocks next hit.'; },
+    value: 6
+  }
+};
+
+const EVENTS = [
+  {
+    name: 'Banana Tree', emoji: '🌴', desc: 'A towering banana tree sways in the breeze.',
+    resolve: g => {
+      const b = RI(2, 5);
+      g.bananas += b;
+      return [`You shake the tree and ${b} bananas fall!`, 'loot'];
+    }
+  },
+  {
+    name: 'Toxic Spores', emoji: '☠️', desc: 'A puff of glowing spores fills the air.',
+    resolve: g => {
+      const d = RI(3, 7);
+      g.hp -= d;
+      return [`You inhale toxic spores! Lose ${d} HP.`, 'damage'];
+    }
+  },
+  {
+    name: 'Monkey Idol', emoji: '🗿', desc: 'A crude stone monkey statue stares at you.',
+    resolve: g => {
+      if (R() >= 10) {
+        const buff = PICK(['burpPower', 'luck']);
+        const val = RI(1, 2);
+        g.buffs.push({ type: buff, value: val, turns: 4 });
+        const label = buff === 'burpPower' ? 'Burp Power' : 'Luck';
+        return [`The idol blesses you! ${label} +${val} for 4 turns!`, 'heal'];
+      } else {
+        const d = RI(3, 5);
+        g.hp -= d;
+        return [`The idol curses you! Lose ${d} HP.`, 'damage'];
+      }
+    }
+  },
+  {
+    name: 'Gambling Frog', emoji: '🐸', desc: 'A frog with a tiny top hat offers a bet.',
+    resolve: g => {
+      if (g.bananas < 2) return ['The frog scoffs at your empty pockets.', 'info'];
+      const bet = Math.min(RI(2, 5), g.bananas);
+      g.bananas -= bet;
+      if (R() >= 11) {
+        g.bananas += bet * 2;
+        return [`You win! Double your bet! +${bet} bananas.`, 'loot'];
+      } else {
+        return [`You lose ${bet} bananas. The frog grins.`, 'damage'];
+      }
+    }
+  },
+  {
+    name: 'Healing Spring', emoji: '💧', desc: 'A crystal-clear spring bubbles gently.',
+    resolve: g => {
+      const h = RI(5, 12);
+      g.hp = Math.min(g.maxHp, g.hp + h);
+      return [`You drink from the spring. Restored ${h} HP.`, 'heal'];
+    }
+  },
+  {
+    name: 'Vision Pool', emoji: '🔮', desc: 'A shimmering pool of liquid light.',
+    resolve: g => {
+      const v = RI(15, 30);
+      g.visionGirth = Math.min(g.maxVg, g.visionGirth + v);
+      return [`Vision Girth +${v}! The pool shows you flickering futures.`, 'vision'];
+    }
+  },
+  {
+    name: 'Mysterious Merchant', emoji: '🧙', desc: 'A hooded figure offers a trade.',
+    resolve: g => {
+      if (R() <= 10) {
+        if (g.hp > 5) {
+          const cost = RI(3, 6);
+          const reward = RI(4, 8);
+          g.hp -= cost;
+          g.bananas += reward;
+          return [`Trade: ${cost} HP for ${reward} bananas. Done.`, 'loot'];
+        }
+        return ['You look too healthy for his taste. He waves you on.', 'info'];
+      } else {
+        if (g.bananas >= 3) {
+          const cost = RI(3, 6);
+          const reward = RI(5, 10);
+          g.bananas -= cost;
+          g.hp = Math.min(g.maxHp, g.hp + reward);
+          return [`Trade: ${cost} bananas for ${reward} HP. Done.`, 'heal'];
+        }
+        return ['You look too poor for his taste. He waves you on.', 'info'];
+      }
+    }
+  }
+];
+
+// ============================================================
+// GAME STATE
+// ============================================================
+
+let G = null;
+
+function initGame() {
+  G = {
+    floor: 1,
+    maxFloors: 10,
+    hp: 30,
+    maxHp: 30,
+    bananas: 3,
+    burpPower: 1,
+    luck: 0,
+    visionGirth: 0,
+    maxVg: 100,
+    inventory: [],
+    buffs: [],
+    ward: false,
+    rerollQueued: false,
+    enemiesDefeated: 0,
+    roomsCleared: 0,
+    roomsThisFloor: 0,
+    maxRoomsPerFloor: 4,
+    floorBossDefeated: false,
+    state: 'playing',
+    log: [],
+    currentEncounter: null,
+    inCombat: false,
+    combatTurn: 'player',
+    enemy: null,
+    buffTimers: {},
+    shopItems: [],
+    roomIndex: 0,
+    floorRooms: [],
+    revealCount: 0,
+  };
+  generateFloor();
+}
+
+function getEffectiveBurpPower() {
+  let bp = G.burpPower;
+  for (const b of G.buffs) if (b.type === 'burpPower') bp += b.value;
+  return bp;
+}
+
+function getEffectiveLuck() {
+  let lk = G.luck;
+  for (const b of G.buffs) if (b.type === 'luck') lk += b.value;
+  return lk;
+}
+
+// ============================================================
+// FLOOR GENERATION
+// ============================================================
+
+function generateFloor() {
+  G.roomsThisFloor = 0;
+  G.floorBossDefeated = false;
+  G.roomIndex = 0;
+  G.rerollQueued = false;
+
+  const numRooms = G.floor === G.maxFloors ? 1 : RI(3, G.maxRoomsPerFloor);
+  G.floorRooms = [];
+
+  for (let i = 0; i < numRooms; i++) {
+    const isLast = i === numRooms - 1;
+    let type;
+    if (G.floor === G.maxFloors && isLast) {
+      type = 'boss';
+    } else if (isLast && G.floor < G.maxFloors) {
+      type = 'floorExit';
+    } else {
+      type = weightedPick([
+        ['enemy', 40], ['loot', 20], ['event', 25], ['shop', 10], ['rest', 5]
+      ]);
+    }
+    G.floorRooms.push(type);
+  }
+
+  enterNextRoom();
+}
+
+function weightedPick(entries) {
+  const total = entries.reduce((s, e) => s + e[1], 0);
+  let r = Math.random() * total;
+  for (const [val, weight] of entries) {
+    r -= weight;
+    if (r <= 0) return val;
+  }
+  return entries[entries.length - 1][0];
+}
+
+function enterNextRoom() {
+  tickBuffs();
+  if (G.rerollQueued) {
+    G.rerollQueued = false;
+    if (G.roomIndex < G.floorRooms.length) {
+      G.floorRooms[G.roomIndex] = weightedPick([
+        ['enemy', 40], ['loot', 25], ['event', 25], ['rest', 10]
+      ]);
+      addLog('Encounter rerolled!', 'vision');
+    }
+  }
+
+  if (G.roomIndex >= G.floorRooms.length) {
+    if (G.floor < G.maxFloors) {
+      advanceFloor();
+    } else {
+      winGame();
+    }
+    return;
+  }
+
+  const type = G.floorRooms[G.roomIndex];
+  G.roomIndex++;
+
+  switch (type) {
+    case 'enemy': spawnEnemy(); break;
+    case 'loot': spawnLoot(); break;
+    case 'event': spawnEvent(); break;
+    case 'shop': spawnShop(); break;
+    case 'rest': spawnRest(); break;
+    case 'boss': spawnBoss(); break;
+    case 'floorExit': showFloorExit(); break;
+  }
+
+  render();
+}
+
+// ============================================================
+// ENCOUNTERS
+// ============================================================
+
+function getEnemyPool() {
+  return Object.entries(ENEMIES).filter(([k, e]) =>
+    G.floor >= e.minFloor && G.floor <= e.maxFloor
+  ).map(([k, e]) => ({ ...e, id: k }));
+}
+
+function spawnEnemy() {
+  const pool = getEnemyPool().filter(e => !e.isBoss);
+  if (!pool.length) { spawnEnemy(); return; }
+  const template = PICK(pool);
+  const hpBonus = RI(0, Math.floor(G.floor * 1.2));
+  G.enemy = {
+    ...template,
+    maxHp: template.hpRange[0] + hpBonus,
+    hp: template.hpRange[0] + hpBonus,
+    id: template.id || template.name
+  };
+  G.inCombat = true;
+  G.combatTurn = 'player';
+  G.currentEncounter = 'enemy';
+}
+
+function spawnBoss() {
+  const pool = getEnemyPool().filter(e => e.isBoss);
+  if (!pool.length) { spawnEnemy(); return; }
+  const template = G.floor === G.maxFloors
+    ? ENEMIES.girth
+    : PICK(pool);
+  const hpBonus = RI(0, Math.floor(G.floor * 2));
+  G.enemy = {
+    ...template,
+    maxHp: template.hpRange[0] + hpBonus,
+    hp: template.hpRange[0] + hpBonus,
+    id: template.id || template.name
+  };
+  G.inCombat = true;
+  G.combatTurn = 'player';
+  G.currentEncounter = 'boss';
+  addLog(`BOSS: ${G.enemy.name} appears!`, 'special');
+}
+
+function spawnLoot() {
+  G.currentEncounter = 'loot';
+  const keys = Object.keys(ITEMS);
+  const chosen = PICK(keys);
+  const item = { ...ITEMS[chosen], id: chosen };
+  G.lootItem = item;
+}
+
+function spawnEvent() {
+  G.currentEncounter = 'event';
+  G.currentEvent = PICK(EVENTS);
+}
+
+function spawnShop() {
+  G.currentEncounter = 'shop';
+  const keys = Object.keys(ITEMS);
+  const count = RI(3, 4);
+  G.shopItems = [];
+  for (let i = 0; i < count; i++) {
+    const id = PICK(keys);
+    G.shopItems.push({ ...ITEMS[id], id, price: Math.max(1, (ITEMS[id].value || 3) + RI(-1, 2)) });
+  }
+}
+
+function spawnRest() {
+  G.currentEncounter = 'rest';
+  const h = RI(6, 12);
+  G.hp = Math.min(G.maxHp, G.hp + h);
+  addLog(`You rest by a safe spot. Restored ${h} HP.`, 'heal');
+}
+
+function showFloorExit() {
+  G.currentEncounter = 'floorExit';
+}
+
+// ============================================================
+// COMBAT
+// ============================================================
+
+function playerBurp() {
+  if (!G.inCombat || !G.enemy) return;
+  playBurp();
+  addLog(`You burp at ${G.enemy.name}!`, 'combat');
+
+  const roll = R() + Math.floor(getEffectiveLuck());
+  let msg, dmg = 0;
+
+  if (roll <= 2) {
+    const selfDmg = RI(1, 3);
+    G.hp -= selfDmg;
+    msg = `Critical fail! You burp backwards and hurt yourself! Lose ${selfDmg} HP.`;
+    addLog(msg, 'damage');
+  } else if (roll <= 6) {
+    msg = 'You let out a tiny squeak. Miss!';
+    addLog(msg, 'info');
+  } else if (roll <= 11) {
+    dmg = RI(1, 2) * getEffectiveBurpPower();
+    msg = `Weak burp! ${dmg} damage.`;
+    playHit();
+    addLog(msg, 'damage');
+  } else if (roll <= 16) {
+    dmg = RI(3, 5) * getEffectiveBurpPower();
+    msg = `Solid burp! ${dmg} damage.`;
+    playHit();
+    addLog(msg, 'damage');
+  } else if (roll <= 19) {
+    dmg = RI(5, 7) * getEffectiveBurpPower();
+    msg = `Powerful belch! ${dmg} damage!`;
+    playHit();
+    addLog(msg, 'damage');
+  } else {
+    dmg = RI(8, 12) * getEffectiveBurpPower();
+    msg = `MEGA BURP!!! ${dmg} devastating damage!!!`;
+    playCritical();
+    addLog(msg, 'special');
+  }
+
+  if (dmg > 0) {
+    G.enemy.hp -= dmg;
+    if (G.enemy.hp <= 0) {
+      defeatEnemy();
+      return;
+    }
+  }
+
+  enemyTurn();
+  render();
+}
+
+function playerDodge() {
+  if (!G.inCombat || !G.enemy) return;
+  addLog('You brace to dodge!', 'info');
+
+  const roll = R() + Math.floor(getEffectiveLuck());
+
+  if (roll <= 5) {
+    addLog('You trip! Take full damage.', 'damage');
+    enemyTurn(1);
+  } else if (roll <= 10) {
+    addLog('Partial dodge — halved damage!', 'info');
+    enemyTurn(0.5);
+  } else if (roll <= 17) {
+    addLog('Smooth dodge! No damage!', 'heal');
+    enemyTurn(0);
+  } else {
+    addLog('Perfect counter! You dodge and burp automatically!', 'special');
+    const autoDmg = RI(2, 4) * getEffectiveBurpPower();
+    G.enemy.hp -= autoDmg;
+    addLog(`Counter burp! ${autoDmg} damage!`, 'damage');
+    if (G.enemy.hp <= 0) {
+      defeatEnemy();
+      return;
+    }
+    enemyTurn(0);
+  }
+
+  render();
+}
+
+function enemyTurn(dmgMod) {
+  if (dmgMod === undefined) dmgMod = 1;
+  if (!G.enemy || G.enemy.hp <= 0) return;
+
+  const baseDmg = RI(G.enemy.dmgRange[0], G.enemy.dmgRange[1]);
+  const finalDmg = Math.max(0, Math.round(baseDmg * dmgMod));
+
+  if (finalDmg === 0) {
+    addLog(`${G.enemy.name} attacks but you avoid it!`, 'heal');
+  } else if (G.ward) {
+    G.ward = false;
+    addLog('Girth Ward blocks the attack!', 'vision');
+  } else {
+    G.hp -= finalDmg;
+    playHit();
+    addLog(`${G.enemy.name} hits you for ${finalDmg} damage!`, 'damage');
+  }
+
+  if (G.hp <= 0) {
+    playDeath();
+    gameOver();
+    return;
+  }
+
+  G.combatTurn = 'player';
+  render();
+}
+
+function defeatEnemy() {
+  G.enemiesDefeated++;
+  G.inCombat = false;
+  G.roomsCleared++;
+  const bananaDrop = RI(1, 4) + Math.floor(G.floor / 2);
+  G.bananas += bananaDrop;
+  playLoot();
+  addLog(`🐒 ${G.enemy.name} defeated! Found ${bananaDrop} bananas.`, 'loot');
+
+  if (G.enemy.isFinal) {
+    winGame();
+    return;
+  }
+  if (G.enemy.isBoss) {
+    G.floorBossDefeated = true;
+  }
+
+  G.enemy = null;
+  tryAdvance();
+  render();
+}
+
+function tryAdvance() {
+  if (G.inCombat) return;
+  if (G.currentEncounter === 'boss' && G.floorBossDefeated) {
+    advanceFloor();
+    return;
+  }
+  enterNextRoom();
+}
+
+// ============================================================
+// PROGRESSION
+// ============================================================
+
+function advanceFloor() {
+  if (G.floor >= G.maxFloors) { winGame(); return; }
+  G.floor++;
+  G.roomsCleared = 0;
+  addLog(`═══ FLOOR ${G.floor} ═══`, 'special');
+
+  const buffs = [
+    { label: 'Max HP +5', apply: g => { g.maxHp += 5; g.hp += 5; } },
+    { label: 'Burp Power +1', apply: g => { g.burpPower++; } },
+    { label: 'Luck +1', apply: g => { g.luck++; } },
+    { label: 'Bananas +5', apply: g => { g.bananas += 5; } },
+    { label: 'Vision Girth +15', apply: g => { g.visionGirth = Math.min(g.maxVg, g.visionGirth + 15); } },
+  ];
+  G.floorBuffChoices = buffs;
+  G.currentEncounter = 'floorBuff';
+  render();
+}
+
+function chooseFloorBuff(idx) {
+  if (!G.floorBuffChoices || idx >= G.floorBuffChoices.length) return;
+  G.floorBuffChoices[idx].apply(G);
+  playHeal();
+  addLog(`Floor buff: ${G.floorBuffChoices[idx].label}`, 'heal');
+  G.floorBuffChoices = null;
+  generateFloor();
+}
+
+// ============================================================
+// ITEMS / LOOT / SHOP
+// ============================================================
+
+function takeLoot() {
+  if (!G.lootItem) return;
+  if (G.inventory.length >= 8) {
+    addLog('Inventory full!', 'damage');
+    return;
+  }
+  G.inventory.push({ ...G.lootItem });
+  playLoot();
+  addLog(`Picked up: ${G.lootItem.emoji} ${G.lootItem.name}`, 'loot');
+  G.lootItem = null;
+  G.roomsCleared++;
+  enterNextRoom();
+  render();
+}
+
+function skipLoot() {
+  addLog('You leave the loot behind.', 'info');
+  G.lootItem = null;
+  G.roomsCleared++;
+  enterNextRoom();
+  render();
+}
+
+function useItem(idx) {
+  if (idx < 0 || idx >= G.inventory.length) return;
+  const item = G.inventory[idx];
+  if (!item) return;
+
+  if (G.inCombat && item.id === 'banana') {
+    const msg = item.effect(G);
+    playHeal();
+    addLog(`Used ${item.emoji} ${item.name}: ${msg}`, 'heal');
+    G.inventory.splice(idx, 1);
+    render();
+    return;
+  }
+
+  if (!G.inCombat) {
+    const msg = item.effect(G);
+    playHeal();
+    addLog(`Used ${item.emoji} ${item.name}: ${msg}`, 'heal');
+    G.inventory.splice(idx, 1);
+    render();
+    return;
+  }
+
+  if (item.id === 'shard') {
+    const msg = item.effect(G);
+    addLog(`Used ${item.emoji} ${item.name}: ${msg}`, 'vision');
+    G.inventory.splice(idx, 1);
+    render();
+    return;
+  }
+
+  addLog('Can\'t use that item right now.', 'info');
+}
+
+function buyShopItem(idx) {
+  if (idx < 0 || idx >= G.shopItems.length) return;
+  const item = G.shopItems[idx];
+  if (G.bananas < item.price) {
+    addLog('Not enough bananas!', 'damage');
+    render();
+    return;
+  }
+  if (G.inventory.length >= 8) {
+    addLog('Inventory full!', 'damage');
+    render();
+    return;
+  }
+  G.bananas -= item.price;
+  G.inventory.push({ ...item });
+  playLoot();
+  addLog(`Bought ${item.emoji} ${item.name} for ${item.price} 🍌`, 'loot');
+  G.shopItems.splice(idx, 1);
+  if (G.shopItems.length === 0) {
+    G.roomsCleared++;
+    enterNextRoom();
+  }
+  render();
+}
+
+function leaveShop() {
+  G.shopItems = [];
+  G.roomsCleared++;
+  enterNextRoom();
+  render();
+}
+
+function resolveEventChoice() {
+  if (!G.currentEvent) return;
+  const [msg, type] = G.currentEvent.resolve(G);
+  if (type === 'damage') {
+    playHit();
+    addLog(msg, 'damage');
+  } else if (type === 'heal') {
+    playHeal();
+    addLog(msg, 'heal');
+  } else if (type === 'loot') {
+    playLoot();
+    addLog(msg, 'loot');
+  } else {
+    addLog(msg, 'info');
+  }
+  if (G.hp <= 0) { playDeath(); gameOver(); return; }
+  G.currentEvent = null;
+  G.roomsCleared++;
+  enterNextRoom();
+  render();
+}
+
+// ============================================================
+// VISION GIRTH
+// ============================================================
+
+function useVisionGirth() {
+  if (G.visionGirth < G.maxVg) {
+    addLog(`Vision Girth not full (${G.visionGirth}/${G.maxVg})`, 'info');
+    render();
+    return;
+  }
+  G.visionGirth = 0;
+
+  if (G.inCombat) {
+    const dmg = RI(8, 12) * getEffectiveBurpPower();
+    G.enemy.hp -= dmg;
+    playCritical();
+    addLog(`VISION GIRTH: Mega Burp! ${dmg} damage!`, 'vision');
+    if (G.enemy.hp <= 0) { defeatEnemy(); render(); return; }
+    enemyTurn();
+    render();
+    return;
+  }
+
+  G.visionChoices = [
+    { label: 'Peek Ahead', desc: 'Reveal next 2 rooms', action: () => {
+      const remaining = G.floorRooms.slice(G.roomIndex - 1);
+      const names = remaining.map(r => r.charAt(0).toUpperCase() + r.slice(1)).join(', ');
+      addLog(`Vision reveals: ${names || 'nothing left'}`, 'vision');
+      G.visionChoices = null;
+      render();
+    }},
+    { label: 'Reroll Encounter', desc: 'Reroll current room', action: () => {
+      G.rerollQueued = true;
+      G.visionChoices = null;
+      addLog('Next encounter will be rerolled!', 'vision');
+      render();
+    }},
+    { label: 'Heal', desc: 'Restore 10-15 HP', action: () => {
+      const h = RI(10, 15);
+      G.hp = Math.min(G.maxHp, G.hp + h);
+      playHeal();
+      addLog(`Vision Girth heals ${h} HP!`, 'heal');
+      G.visionChoices = null;
+      render();
+    }},
+  ];
+  render();
+}
+
+// ============================================================
+// BUFF TICK
+// ============================================================
+
+function tickBuffs() {
+  G.buffs = G.buffs.filter(b => {
+    b.turns--;
+    return b.turns > 0;
+  });
+}
+
+// ============================================================
+// LOG
+// ============================================================
+
+function addLog(msg, type = 'info') {
+  G.log.push({ msg, type });
+  if (G.log.length > 100) G.log.splice(0, 10);
+}
+
+// ============================================================
+// GAME OVER / WIN
+// ============================================================
+
+function gameOver() {
+  G.state = 'gameover';
+  addLog('💀 The monkey has fallen...', 'damage');
+  render();
+}
+
+function winGame() {
+  G.state = 'win';
+  playWinSound();
+  addLog('🏆 YOU WIN! The Vision Girth is yours!', 'special');
+  render();
+}
+
+// ============================================================
+// RENDERING
+// ============================================================
+
+function render() {
+  const app = document.getElementById('app');
+  if (!app) return;
+
+  if (G.state === 'gameover') {
+    app.innerHTML = renderGameOver();
+    bindEvents();
+    return;
+  }
+  if (G.state === 'win') {
+    app.innerHTML = renderWin();
+    bindEvents();
+    return;
+  }
+
+  let html = '';
+  html += renderStats();
+  html += renderInventory();
+  html += renderEncounter();
+  html += renderActions();
+  html += renderLog();
+  app.innerHTML = html;
+  const logEl = document.getElementById('log');
+  if (logEl) logEl.scrollTop = logEl.scrollHeight;
+  bindEvents();
+}
+
+function renderStats() {
+  const hpPct = (G.hp / G.maxHp) * 100;
+  const vgPct = (G.visionGirth / G.maxVg) * 100;
+  const hpClass = hpPct <= 25 ? 'low' : '';
+  const bp = getEffectiveBurpPower();
+  const lk = getEffectiveLuck();
+  return `
+    <div id="stats">
+      <span class="stat"><span class="stat-label">Floor:</span> <span class="stat-val">${G.floor}/${G.maxFloors}</span></span>
+      <span class="stat"><span class="stat-label">HP:</span> <span class="stat-val ${hpClass}">${G.hp}/${G.maxHp}</span>
+        <span class="stat-bar"><span class="stat-bar-inner ${hpClass}" style="width:${hpPct}%"></span></span>
+      </span>
+      <span class="stat"><span class="stat-label">🍌:</span> <span class="stat-val">${G.bananas}</span></span>
+      <span class="stat"><span class="stat-label">Burp:</span> <span class="stat-val">${bp !== G.burpPower ? bp : G.burpPower}</span></span>
+      <span class="stat"><span class="stat-label">Luck:</span> <span class="stat-val">${lk !== G.luck ? lk : G.luck}</span></span>
+      <span class="stat"><span class="stat-label">VG:</span> <span class="stat-val ${vgPct >= 100 ? 'full' : ''}">${G.visionGirth}/${G.maxVg}</span>
+        <span class="stat-bar"><span class="stat-bar-inner" style="width:${vgPct}%;background:${vgPct >= 100 ? '#da4' : '#3a3'}"></span></span>
+      </span>
+      ${G.ward ? '<span class="stat stat-val full">🛡️ Warded</span>' : ''}
+    </div>
+  `;
+}
+
+function renderInventory() {
+  if (G.inventory.length === 0) return '';
+  let html = '<div id="inventory-area">';
+  G.inventory.forEach((item, i) => {
+    html += `<button class="inv-item" data-action="useItem" data-idx="${i}" title="${item.desc}">${item.emoji} ${item.name}</button>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+function renderEncounter() {
+  let html = '<div id="encounter">';
+
+  if (G.currentEncounter === 'enemy' || G.currentEncounter === 'boss') {
+    if (G.enemy) {
+      const hpPct = (G.enemy.hp / G.enemy.maxHp) * 100;
+      html += `<div class="art">${G.enemy.emoji}</div>`;
+      html += `<div class="name">${G.enemy.name}</div>`;
+      html += `<div class="desc">${G.enemy.desc}</div>`;
+      html += `<div class="enemy-hp">HP: ${G.enemy.hp}/${G.enemy.maxHp} [${'█'.repeat(Math.floor(hpPct / 10))}${'░'.repeat(10 - Math.floor(hpPct / 10))}]</div>`;
+    }
+  } else if (G.currentEncounter === 'loot' && G.lootItem) {
+    html += `<div class="art">${G.lootItem.emoji}</div>`;
+    html += `<div class="name">${G.lootItem.name}</div>`;
+    html += `<div class="desc">${G.lootItem.desc}</div>`;
+  } else if (G.currentEncounter === 'event' && G.currentEvent) {
+    html += `<div class="art">${G.currentEvent.emoji}</div>`;
+    html += `<div class="name">${G.currentEvent.name}</div>`;
+    html += `<div class="desc">${G.currentEvent.desc}</div>`;
+  } else if (G.currentEncounter === 'shop') {
+    html += `<div class="art">🏪</div>`;
+    html += `<div class="name">Jungle Emporium</div>`;
+    html += '<div class="desc" style="margin-bottom:8px;">A traveling shop appears!</div>';
+    G.shopItems.forEach((item, i) => {
+      const canBuy = G.bananas >= item.price;
+      html += `<div class="clickable" data-shop-idx="${i}" style="margin:3px 0;font-size:13px;${canBuy ? 'color:#ada' : 'color:#555'}">`;
+      html += `${item.emoji} ${item.name} — ${item.price} 🍌 ${canBuy ? '<span style="color:#4d4">[Buy]</span>' : '<span style="color:#a44">[Can\'t afford]</span>'}`;
+      html += ` <span style="color:#666;font-size:11px;">${item.desc}</span></div>`;
+    });
+  } else if (G.currentEncounter === 'rest') {
+    html += `<div class="art">🌿</div>`;
+    html += `<div class="name">Resting Spot</div>`;
+    html += `<div class="desc">A peaceful clearing. The monkey catches its breath.</div>`;
+  } else if (G.currentEncounter === 'floorExit') {
+    html += `<div class="art">🚪</div>`;
+    html += `<div class="name">Floor Exit</div>`;
+    html += `<div class="desc">The path to the next floor lies ahead...</div>`;
+  } else if (G.currentEncounter === 'floorBuff') {
+    html += `<div class="art">⬆️</div>`;
+    html += `<div class="name">Floor ${G.floor} — Choose a Boon</div>`;
+    html += '<div class="desc" style="margin-bottom:8px;">The jungle grants you power as you descend.</div>';
+    G.floorBuffChoices.forEach((b, i) => {
+      html += `<div class="clickable" data-buff-idx="${i}" style="margin:3px 0;font-size:13px;color:#ada">${b.label}</div>`;
+    });
+  } else {
+    html += `<div class="art">🐒</div>`;
+    html += `<div class="name">The Monkey</div>`;
+    html += '<div class="desc">Waiting...</div>';
+  }
+
+  if (G.visionChoices) {
+    html += '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #333;width:100%;">';
+    html += '<div style="color:#4da;font-size:13px;margin-bottom:6px;">🌀 Choose Vision ability:</div>';
+    G.visionChoices.forEach((c, i) => {
+      html += `<div class="vision-choice" data-vision-idx="${i}" style="margin:3px 0;font-size:13px;color:#ada">${c.label} — <span style="color:#888;font-size:11px;">${c.desc}</span></div>`;
+    });
+    html += '</div>';
+  }
+
+  if (G.buffs.length > 0) {
+    const bpBuff = G.buffs.filter(b => b.type === 'burpPower').reduce((s, b) => s + b.value, 0);
+    const lkBuff = G.buffs.filter(b => b.type === 'luck').reduce((s, b) => s + b.value, 0);
+    const parts = [];
+    if (bpBuff) parts.push(`Burp +${bpBuff}`);
+    if (lkBuff) parts.push(`Luck +${lkBuff}`);
+    if (parts.length) html += `<div class="buff-info">✨ Active: ${parts.join(', ')}</div>`;
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function renderActions() {
+  let html = '<div id="actions">';
+  const visionFull = G.visionGirth >= G.maxVg;
+
+  if (G.inCombat) {
+    html += `<button data-action="burp">💨 Burp!</button>`;
+    html += `<button data-action="dodge">🤸 Dodge</button>`;
+    html += `<button data-action="visionGirth" class="${visionFull ? 'vision-ready' : ''}" ${!visionFull ? 'disabled' : ''}>🌀 Vision (${G.visionGirth}/${G.maxVg})</button>`;
+  } else if (G.currentEncounter === 'loot') {
+    html += `<button data-action="takeLoot">✅ Take Loot</button>`;
+    html += `<button data-action="skipLoot">❌ Skip</button>`;
+    if (visionFull) html += `<button data-action="visionGirth" class="vision-ready">🌀 Vision (Full)</button>`;
+  } else if (G.currentEncounter === 'event') {
+    html += `<button data-action="resolveEvent">⚡ Proceed</button>`;
+    if (visionFull) html += `<button data-action="visionGirth" class="vision-ready">🌀 Vision (Full)</button>`;
+  } else if (G.currentEncounter === 'shop') {
+    html += `<button data-action="leaveShop">🚪 Leave</button>`;
+    if (visionFull) html += `<button data-action="visionGirth" class="vision-ready">🌀 Vision (Full)</button>`;
+  } else if (G.currentEncounter === 'rest') {
+    html += `<button data-action="proceedRest">➡️ Continue</button>`;
+    if (visionFull) html += `<button data-action="visionGirth" class="vision-ready">🌀 Vision (Full)</button>`;
+  } else if (G.currentEncounter === 'floorExit') {
+    html += `<button data-action="proceedFloor">⬇️ Descend</button>`;
+  } else if (G.currentEncounter === 'floorBuff') {
+    html += `<span style="color:#666;font-size:12px;padding:8px;">Click a boon above</span>`;
+  } else {
+    html += `<span style="color:#666;font-size:12px;padding:8px;">Awaiting...</span>`;
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function renderLog() {
+  let html = '<div id="log">';
+  for (const entry of G.log.slice(-20)) {
+    const cls = `log-${entry.type}`;
+    html += `<div class="log-entry ${cls}">${entry.msg}</div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderGameOver() {
+  return `
+    <div id="game-over">
+      <div style="font-size:64px;margin-bottom:12px;">💀</div>
+      <h2>GAME OVER</h2>
+      <div class="final-stats">
+        <div>Reached Floor ${G.floor}/${G.maxFloors}</div>
+        <div>Enemies Defeated: ${G.enemiesDefeated}</div>
+        <div>Bananas Collected: ${G.bananas}</div>
+      </div>
+      <button class="btn-main" data-action="restart">🔄 Try Again</button>
+    </div>
+  `;
+}
+
+function renderWin() {
+  return `
+    <div id="win-screen">
+      <div style="font-size:64px;margin-bottom:12px;">🏆</div>
+      <h2>YOU WIN!</h2>
+      <div style="color:#4da;font-size:16px;margin-bottom:8px;">🐒 The monkey has mastered Vision Girth!</div>
+      <div class="final-stats">
+        <div>Floors Conquered: ${G.floor}/${G.maxFloors}</div>
+        <div>Enemies Defeated: ${G.enemiesDefeated}</div>
+        <div>Bananas Collected: ${G.bananas}</div>
+      </div>
+      <div style="color:#585;font-size:13px;margin:10px 0;">"The Girth is within you now."</div>
+      <button class="btn-main" data-action="restart">🔄 Play Again</button>
+    </div>
+  `;
+}
+
+// ============================================================
+// EVENT BINDING
+// ============================================================
+
+function bindEvents() {
+  document.querySelectorAll('[data-action]').forEach(el => {
+    el.addEventListener('click', e => {
+      const action = el.dataset.action;
+      const idx = el.dataset.idx !== undefined ? parseInt(el.dataset.idx) : -1;
+
+      switch (action) {
+        case 'burp': playerBurp(); break;
+        case 'dodge': playerDodge(); break;
+        case 'useItem': useItem(idx); break;
+        case 'visionGirth': useVisionGirth(); break;
+        case 'takeLoot': takeLoot(); break;
+        case 'skipLoot': skipLoot(); break;
+        case 'resolveEvent': resolveEventChoice(); break;
+        case 'leaveShop': leaveShop(); break;
+        case 'proceedRest': G.roomsCleared++; enterNextRoom(); render(); break;
+        case 'proceedFloor': advanceFloor(); break;
+        case 'restart': startGame(); break;
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-shop-idx]').forEach(el => {
+    el.addEventListener('click', () => {
+      if (G.currentEncounter === 'shop') {
+        buyShopItem(parseInt(el.dataset.shopIdx));
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-buff-idx]').forEach(el => {
+    el.addEventListener('click', () => {
+      if (G.currentEncounter === 'floorBuff' && G.floorBuffChoices) {
+        chooseFloorBuff(parseInt(el.dataset.buffIdx));
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-vision-idx]').forEach(el => {
+    el.addEventListener('click', () => {
+      if (G.visionChoices) {
+        const idx = parseInt(el.dataset.visionIdx);
+        if (idx >= 0 && idx < G.visionChoices.length) {
+          G.visionChoices[idx].action();
+        }
+      }
+    });
+  });
+}
+
+// ============================================================
+// START
+// ============================================================
+
+function startGame() {
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div id="title-screen">
+      <div class="big-art">🐒</div>
+      <h1>BURPING MONKEY</h1>
+      <h2>⚔ Vision Girth ⚔</h2>
+      <div class="flavor">
+        A chance-based roguelike.<br>
+        Burp your way through 10 floors of the Vision Girth jungle.<br>
+        Every action is a roll of fate. Luck favors the bold.<br><br>
+        <span style="color:#585">"The deeper the girth, the louder the burp."</span>
+      </div>
+      <button class="btn-main" id="startBtn">🌀 Enter the Girth</button>
+    </div>
+  `;
+  document.getElementById('startBtn').addEventListener('click', () => {
+    initAudio();
+    if (musicOn) startBgMusic();
+    initGame();
+  });
+}
+
+document.addEventListener('DOMContentLoaded', startGame);
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+# Freebuff app data (local database + dev helpers)
+.freebuff/
+
+# OS junk
+.DS_Store
+Thumbs.db
