@@ -2,18 +2,18 @@
   'use strict';
 
   /* ═══ Constants ═══ */
-  const ROOM = { x1: -700, x2: 700, z1: -600, z2: 600 };
+  const ROOM = { x1: -800, x2: 800, z1: -700, z2: 700 };
   const PLAYER_R = 40;
   const MOVE_SPEED = 240;
   const TURN_SPEED = 2.6;
   const CAM_H = 320; // eye height above the floor
   const FOCUS_ANGLE = 0.56; // rad (~32°) — how far off-center you can aim
-  const FOCUS_RANGE = 1150;
+  const FOCUS_RANGE = 1400;
 
   const MACHINE_TYPES = [
-    { w: 200, h: 400, d: 70, kind: 'classic' },
-    { w: 180, h: 450, d: 65, kind: 'slim' },
-    { w: 210, h: 350, d: 80, kind: 'kiosk' }
+    { w: 200, h: 400, d: 90, kind: 'classic' },
+    { w: 180, h: 450, d: 80, kind: 'slim' },
+    { w: 210, h: 350, d: 100, kind: 'kiosk' }
   ];
 
   /* ═══ State ═══ */
@@ -32,7 +32,8 @@
   let lastPX = 0;
   let suppressClickUntil = 0;
 
-  const machines = [];
+  const machines = []; // rendered machines (focus + click)
+  const solids = [];   // collision shapes: machines + gap blockers
   let camEl = null;
   let worldEl = null;
 
@@ -245,16 +246,15 @@
     const halfX = Math.abs(Math.cos(yr)) * (W / 2) + Math.abs(Math.sin(yr)) * (D / 2) + 12;
     const halfZ = Math.abs(Math.sin(yr)) * (W / 2) + Math.abs(Math.cos(yr)) * (D / 2) + 12;
 
-    machines.push({
-      el: m, game, index,
-      x, z, yaw: yr,
-      halfW: halfZ, halfD: halfX
-    });
+    const rec = { el: m, game, index, x, z, yaw: yr, halfX, halfZ };
+    machines.push(rec);
+    solids.push(rec);
   }
 
   function buildScene() {
     worldEl.innerHTML = '';
     machines.length = 0;
+    solids.length = 0;
 
     if (games.length === 0) {
       const msg = document.createElement('div');
@@ -268,13 +268,13 @@
     // Floor
     const floor = document.createElement('div');
     floor.className = 'floor';
-    floor.style.cssText = 'width:1400px;height:1200px;left:-700px;top:-600px;transform:rotateX(90deg);';
+    floor.style.cssText = 'width:1600px;height:1400px;left:-800px;top:-700px;transform:rotateX(90deg);';
     worldEl.appendChild(floor);
 
     // Carpet runner
     const carpet = document.createElement('div');
     carpet.className = 'carpet';
-    carpet.style.cssText = 'width:280px;height:1200px;left:-140px;top:-600px;transform:translate3d(0,-1px,0) rotateX(90deg);';
+    carpet.style.cssText = 'width:300px;height:1400px;left:-150px;top:-700px;transform:translate3d(0,-1px,0) rotateX(90deg);';
     worldEl.appendChild(carpet);
 
     // Walls
@@ -285,30 +285,30 @@
         'transform:translate3d(' + x + 'px,' + (-h / 2) + 'px,' + z + 'px)' + (yaw ? ' rotateY(' + yaw + 'deg)' : '');
       worldEl.appendChild(el);
     }
-    wall(1400, 700, 0, -600, 0);
-    wall(1400, 700, 0, 600, 180);
-    wall(1200, 700, -700, 0, 90);
-    wall(1200, 700, 700, 0, -90);
+    wall(1600, 750, 0, -700, 0);
+    wall(1600, 750, 0, 700, 180);
+    wall(1400, 750, -800, 0, 90);
+    wall(1400, 750, 800, 0, -90);
 
     // Neon strips along the wall tops
     function strip(len, x, z, yaw, color) {
       const el = document.createElement('div');
       el.className = 'neon-strip';
       el.style.cssText = 'width:' + len + 'px;height:8px;left:' + (-len / 2) + 'px;top:-4px;' +
-        'transform:translate3d(' + x + 'px,-640px,' + z + 'px)' + (yaw ? ' rotateY(' + yaw + 'deg)' : '') + ';' +
+        'transform:translate3d(' + x + 'px,-690px,' + z + 'px)' + (yaw ? ' rotateY(' + yaw + 'deg)' : '') + ';' +
         'background:' + color + ';box-shadow:0 0 28px ' + color + ', 0 0 60px ' + color + '33;';
       worldEl.appendChild(el);
     }
-    strip(1400, 0, -596, 0, '#ff6b6b');
-    strip(1400, 0, 596, 180, '#c96bff');
-    strip(1200, -696, 0, 90, '#6bcbff');
-    strip(1200, 696, 0, -90, '#ffd93d');
+    strip(1600, 0, -696, 0, '#ff6b6b');
+    strip(1600, 0, 696, 180, '#c96bff');
+    strip(1400, -796, 0, 90, '#6bcbff');
+    strip(1400, 796, 0, -90, '#ffd93d');
 
     // Back-wall neon sign
     const sign = document.createElement('div');
     sign.className = 'neon-sign';
     sign.innerHTML = '<div class="neon-sign-main">AI ARCADE</div><div class="neon-sign-sub">● WALK THE ARCADE ●</div>';
-    sign.style.cssText = 'width:900px;height:170px;left:-450px;top:-85px;transform:translate3d(0px,-360px,-591px);';
+    sign.style.cssText = 'width:1000px;height:180px;left:-500px;top:-90px;transform:translate3d(0px,-380px,-691px);';
     worldEl.appendChild(sign);
 
     // Wall posters
@@ -317,24 +317,44 @@
       el.className = 'poster';
       el.innerHTML = '<span class="poster-emoji">' + emoji + '</span><span class="poster-text">' + text + '</span>';
       el.style.cssText = 'width:200px;height:120px;left:-100px;top:-60px;' +
-        'transform:translate3d(' + x + 'px,-240px,' + z + 'px) rotateY(' + yaw + 'deg);';
+        'transform:translate3d(' + x + 'px,-260px,' + z + 'px) rotateY(' + yaw + 'deg);';
       worldEl.appendChild(el);
     }
-    poster(-693, -300, 90, '🪙', 'INSERT COIN');
-    poster(693, 300, -90, '🕹️', 'PLAY AGAIN');
-    poster(-693, 100, 90, '🏆', 'HIGH SCORES');
+    poster(-793, -380, 90, '🪙', 'INSERT COIN');
+    poster(793, 380, -90, '🕹️', 'PLAY AGAIN');
+    poster(-793, 80, 90, '🏆', 'HIGH SCORES');
+    poster(793, -80, -90, '⭐', 'BEST SCORES');
 
     // Machines: featured at the back, rows facing each other along the sides
-    const rowZ = [-430, -200, 30, 260];
+    const ROW_X = 380;
+    const rowZ = [-520, -200, 120, 440];
     const leftTilt = [4, -5, 3, -4];
     const rightTilt = [-4, 5, -3, 4];
     for (let i = 0; i < 4; i++) {
       const gL = games[i + 1];
-      if (gL) buildMachine(gL, i + 1, -360, rowZ[i], 90 + leftTilt[i]);
+      if (gL) buildMachine(gL, i + 1, -ROW_X, rowZ[i], 90 + leftTilt[i]);
       const gR = games[i + 5];
-      if (gR) buildMachine(gR, i + 5, 360, rowZ[i], -90 + rightTilt[i]);
+      if (gR) buildMachine(gR, i + 5, ROW_X, rowZ[i], -90 + rightTilt[i]);
     }
-    if (games[0]) buildMachine(games[0], 0, 0, -560, 0);
+    if (games[0]) buildMachine(games[0], 0, 0, -660, 0);
+
+    addGapBlockers(ROW_X);
+  }
+
+  // Fill the gaps between machines in each row so the player can't squeeze
+  // between cabinets — rows read as a continuous wall, but you can still walk
+  // around their ends into the space behind.
+  function addGapBlockers(rowX) {
+    for (const rx of [rowX, -rowX]) {
+      const row = machines.filter((m) => Math.abs(m.x - rx) < 10).sort((a, b) => a.z - b.z);
+      for (let i = 0; i < row.length - 1; i++) {
+        const a = row[i], b = row[i + 1];
+        const gap = (b.z - b.halfZ) - (a.z + a.halfZ);
+        if (gap > 0) {
+          solids.push({ x: rx, z: (a.z + b.z) / 2, halfX: 16, halfZ: gap / 2 + 10 });
+        }
+      }
+    }
   }
 
   /* ═══ Focus (keyboard aim) ═══ */
@@ -389,17 +409,26 @@
       (-cam.x) + 'px,' + CAM_H + 'px,' + (-cam.z) + 'px)';
   }
 
-  function collide() {
+  // Move the camera one axis at a time, resolving against the room bounds and
+  // every solid shape. Per-axis resolution makes the player slide along walls
+  // and cabinets instead of snapping to the corner.
+  function moveAxis(dx, dz) {
+    cam.x += dx;
     cam.x = clamp(cam.x, ROOM.x1 + PLAYER_R, ROOM.x2 - PLAYER_R);
+    for (const s of solids) {
+      if (cam.z > s.z - s.halfZ - PLAYER_R && cam.z < s.z + s.halfZ + PLAYER_R &&
+          cam.x > s.x - s.halfX - PLAYER_R && cam.x < s.x + s.halfX + PLAYER_R) {
+        cam.x = (cam.x - (s.x - s.halfX - PLAYER_R) < (s.x + s.halfX + PLAYER_R) - cam.x)
+          ? s.x - s.halfX - PLAYER_R : s.x + s.halfX + PLAYER_R;
+      }
+    }
+    cam.z += dz;
     cam.z = clamp(cam.z, ROOM.z1 + PLAYER_R, ROOM.z2 - PLAYER_R);
-    for (const m of machines) {
-      const minX = m.x - m.halfD - PLAYER_R, maxX = m.x + m.halfD + PLAYER_R;
-      const minZ = m.z - m.halfW - PLAYER_R, maxZ = m.z + m.halfW + PLAYER_R;
-      const px = Math.min(cam.x - minX, maxX - cam.x);
-      const pz = Math.min(cam.z - minZ, maxZ - cam.z);
-      if (px > 0 && pz > 0) {
-        if (px < pz) cam.x = (cam.x - minX < maxX - cam.x) ? minX : maxX;
-        else cam.z = (cam.z - minZ < maxZ - cam.z) ? minZ : maxZ;
+    for (const s of solids) {
+      if (cam.x > s.x - s.halfX - PLAYER_R && cam.x < s.x + s.halfX + PLAYER_R &&
+          cam.z > s.z - s.halfZ - PLAYER_R && cam.z < s.z + s.halfZ + PLAYER_R) {
+        cam.z = (cam.z - (s.z - s.halfZ - PLAYER_R) < (s.z + s.halfZ + PLAYER_R) - cam.z)
+          ? s.z - s.halfZ - PLAYER_R : s.z + s.halfZ + PLAYER_R;
       }
     }
   }
@@ -411,13 +440,9 @@
     if (keys.l) { dx -= Math.cos(cam.yaw); dz += Math.sin(cam.yaw); }
     if (keys.r) { dx += Math.cos(cam.yaw); dz -= Math.sin(cam.yaw); }
     const len = Math.hypot(dx, dz);
-    if (len > 0) {
-      cam.x += dx / len * MOVE_SPEED * dt;
-      cam.z += dz / len * MOVE_SPEED * dt;
-    }
+    if (len > 0) moveAxis(dx / len * MOVE_SPEED * dt, dz / len * MOVE_SPEED * dt);
     if (keys.tl) cam.yaw += TURN_SPEED * dt;
     if (keys.tr) cam.yaw -= TURN_SPEED * dt;
-    collide();
   }
 
   function clearKeys() {
@@ -509,7 +534,7 @@
     cancelAnimationFrame(rafId);
     machines.length = 0;
     buildScene();
-    cam.x = 0; cam.z = 430; cam.yaw = 0;
+    cam.x = 0; cam.z = 500; cam.yaw = 0;
     focusedIndex = -1;
     lastT = 0;
     applyCamera();

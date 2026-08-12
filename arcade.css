@@ -300,6 +300,9 @@ body {
   flex-direction: column;
   overflow: hidden;
   border-radius: 10px 10px 4px 4px;
+  /* Opaque body so the gaps around the bezel/screen read as cabinet frame
+     instead of showing the hollow interior. */
+  background: linear-gradient(180deg, #15151f, #0d0d15);
 }
 
 .marquee {
