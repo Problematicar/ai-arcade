@@ -405,10 +405,14 @@
   /* ═══ Movement & collision ═══ */
   function applyCamera() {
     if (!camEl) return;
-    // Camera-space transform on the camera element (which has transform-origin
-    // 0 0): stage = R(-yaw) * (point - cam) + (0, eyeHeight, 0). The parent
-    // #stage applies the perspective projection.
-    camEl.style.transform = 'rotateY(' + (-cam.yaw * 180 / Math.PI) + 'deg) translate3d(' +
+    // True camera rotation: the #camera element carries the perspective
+    // projection, the yaw rotation, and the eye-position offset. The room
+    // (#world) is never transformed. Camera-space mapping:
+    //   screen = perspective( R(-yaw) * (point - cam) + (0, eyeHeight, 0) )
+    // The perspective() and the rotation share the camera's transform-origin
+    // (screen center), so the forward ray maps to screen center and turning
+    // pivots about the player's eye.
+    camEl.style.transform = 'perspective(900px) rotateY(' + (-cam.yaw * 180 / Math.PI) + 'deg) translate3d(' +
       (-cam.x) + 'px,' + CAM_H + 'px,' + (-cam.z) + 'px)';
   }
 

@@ -118,8 +118,6 @@ body {
 #stage {
   position: absolute;
   inset: 0;
-  perspective: 900px;
-  perspective-origin: 50% 50%;
   overflow: hidden;
   z-index: 10;
   opacity: 0;
@@ -130,22 +128,29 @@ body {
   opacity: 1;
 }
 
+/* The camera is a real 3D camera rig: it owns the perspective projection,
+   the yaw rotation, and the eye-position offset — all set from JS in
+   applyCamera(). Rotating the view rotates the camera element; the room
+   (#world) below is never transformed. transform-origin 50% 50% puts the
+   projection axis and the rotation pivot exactly on the screen center, so
+   the forward ray maps to screen center and turning pivots about the
+   player's eye. */
 #camera {
   position: absolute;
-  /* Sit the camera's local origin exactly on the projection axis (the stage's
-     perspective-origin at screen center) so the forward ray maps to screen
-     center — otherwise everything projects off to one side. */
+  inset: 0;
+  transform-style: preserve-3d;
+  transform-origin: 50% 50%;
+}
+
+/* The room: a static 0×0 node whose origin sits at the screen center. All
+   room geometry is positioned in world coordinates relative to this origin.
+   It carries no transform of its own — only the camera above it moves. */
+#world {
+  position: absolute;
   left: 50%;
   top: 50%;
   width: 0;
   height: 0;
-  transform-style: preserve-3d;
-  transform-origin: 0 0;
-}
-
-#world {
-  position: absolute;
-  inset: 0;
   transform-style: preserve-3d;
 }
 
