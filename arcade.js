@@ -3,7 +3,9 @@
 
   /* ═══ Constants ═══ */
   const ROOM = { x1: -800, x2: 800, z1: -700, z2: 700 };
-  const PLAYER_R = 40;
+  // Camera body radius: small enough to walk right up to a cabinet and read
+  // its screen, large enough to never clip through a painted face.
+  const PLAYER_R = 26;
   const MOVE_SPEED = 240;
   const TURN_SPEED = 2.6;
   const CAM_H = 320; // eye height above the floor
@@ -24,13 +26,16 @@
   let rafId = 0;
   let lastT = 0;
 
-  const cam = { x: 0, z: 430, yaw: 0 };
+  const cam = { x: 0, z: 430, yaw: 0, pitch: 0 };
   const keys = { f: false, b: false, l: false, r: false, tl: false, tr: false };
   let focusedIndex = -1;
   let dragging = false;
   let dragDist = 0;
   let lastPX = 0;
+  let lastPY = 0;
   let suppressClickUntil = 0;
+  let bobPhase = 0;
+  let bob = 0;
 
   const machines = []; // rendered machines (focus + click)
   const solids = [];   // collision shapes: machines + gap blockers
@@ -148,6 +153,10 @@
     const b = Math.round((n & 255) * f);
     return 'rgb(' + r + ',' + g + ',' + b + ')';
   }
+  function rgba(hex, a) {
+    const n = parseInt(hex.slice(1), 16);
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+  }
 
   /* ═══ Scene construction ═══ */
   function makeFace(w, h, cls, transform) {
@@ -190,6 +199,7 @@
     box.style.top = (-H) + 'px'; // box hangs from the machine origin, bottom on the floor
     box.style.setProperty('--mc', game.color);
     box.style.setProperty('--mc2', shade(game.color, 0.45));
+    box.style.setProperty('--mc-t', rgba(game.color, 0.26));
 
     // Front face — marquee, screen, panel, base
     const front = makeFace(W, H, 'front', 'translateZ(' + (D / 2) + 'px)');
@@ -247,7 +257,7 @@
     const halfX = Math.abs(Math.cos(yr)) * (W / 2) + Math.abs(Math.sin(yr)) * (D / 2) + 8;
     const halfZ = Math.abs(Math.sin(yr)) * (W / 2) + Math.abs(Math.cos(yr)) * (D / 2) + 8;
 
-    const rec = { el: m, game, index, x, z, yaw: yr, halfX, halfZ };
+    const rec = { el: m, game, index, x, z, yaw: yr, halfX, halfZ, h: H };
     machines.push(rec);
     solids.push(rec);
   }
@@ -362,21 +372,39 @@
 
   /* ═══ Focus (keyboard aim) ═══ */
   function computeFocus() {
-    let best = -1, bestA = FOCUS_ANGLE, bestD = FOCUS_RANGE;
+    // Aim ray = the camera's forward direction, now including pitch (look
+    // up/down). Transform each machine into camera space exactly like the
+    // CSS transform does (rotateX(-pitch) then rotateY(-yaw)), then test the
+    // two axes separately:
+    //  - horizontally the machine must sit inside the aim cone (FOCUS_ANGLE);
+    //  - vertically its body must overlap the aim ray — the band grows with
+    //    the machine's own angular height, so you can focus it standing nose-
+    //    to-glass, but staring at the ceiling never focuses a machine below.
+    let best = -1, bestA = Math.PI / 2, bestD = FOCUS_RANGE;
     const c = Math.cos(cam.yaw), s = Math.sin(cam.yaw);
+    const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
     for (const m of machines) {
       const relX = m.x - cam.x, relZ = m.z - cam.z;
-      const cz = s * relX + c * relZ;           // camera-space depth
-      if (cz >= 0) continue;                    // behind the camera
-      const cx = c * relX - s * relZ;
+      const relY = CAM_H - m.h / 2;           // machine screen-center height vs the eye
+      // rotateX(-pitch): relY' = relY·cp + relZ·sp ; relZ' = relZ·cp − relY·sp
+      const pz = relZ * cp - relY * sp;
+      const py = relY * cp + relZ * sp;
+      // rotateY(-yaw):
+      const cx = relX * c - pz * s;
+      const cz = relX * s + pz * c;
+      const depth = -cz;
+      if (depth <= 1) continue;               // behind or at the eye
       const dist = Math.hypot(relX, relZ);
       if (dist > FOCUS_RANGE) continue;
-      const ang = Math.abs(Math.atan2(cx, -cz));
-      if (ang > FOCUS_ANGLE) continue;
+      const angH = Math.atan2(cx, depth);
+      if (Math.abs(angH) > FOCUS_ANGLE) continue;
+      const angV = Math.atan2(py, depth);
+      if (Math.abs(angV) > Math.atan2(m.h / 2, depth) + 0.45) continue;
       // machine front must face the camera (opposite to camera→machine)
       if (Math.sin(m.yaw) * relX + Math.cos(m.yaw) * relZ >= 0) continue;
-      if (ang < bestA - 1e-9 || (Math.abs(ang - bestA) < 1e-9 && dist < bestD)) {
-        best = m.index; bestA = ang; bestD = dist;
+      const total = Math.atan2(Math.hypot(cx, py), depth); // off-ray angle for ranking
+      if (total < bestA - 1e-9 || (Math.abs(total - bestA) < 1e-9 && dist < bestD)) {
+        best = m.index; bestA = total; bestD = dist;
       }
     }
     return best;
@@ -393,12 +421,15 @@
   function updateHUD() {
     const gc = document.getElementById('game-count');
     const ft = document.getElementById('focused-title');
+    const ret = document.getElementById('reticle');
     if (focusedIndex >= 0 && games[focusedIndex]) {
       gc.textContent = (focusedIndex + 1) + ' / ' + games.length;
       ft.textContent = games[focusedIndex].title;
+      if (ret) ret.classList.add('on');
     } else {
       gc.textContent = games.length + ' MACHINES';
       ft.textContent = '— LOOK AROUND —';
+      if (ret) ret.classList.remove('on');
     }
   }
 
@@ -406,14 +437,16 @@
   function applyCamera() {
     if (!camEl) return;
     // True camera rotation: the #camera element carries the perspective
-    // projection, the yaw rotation, and the eye-position offset. The room
-    // (#world) is never transformed. Camera-space mapping:
-    //   screen = perspective( R(-yaw) * (point - cam) + (0, eyeHeight, 0) )
-    // The perspective() and the rotation share the camera's transform-origin
-    // (screen center), so the forward ray maps to screen center and turning
-    // pivots about the player's eye.
-    camEl.style.transform = 'perspective(900px) rotateY(' + (-cam.yaw * 180 / Math.PI) + 'deg) translate3d(' +
-      (-cam.x) + 'px,' + CAM_H + 'px,' + (-cam.z) + 'px)';
+    // projection, the yaw/pitch rotation, and the eye-position offset. The
+    // room (#world) is never transformed. Camera-space mapping:
+    //   screen = perspective( R(-yaw) · R(-pitch) · (point - cam) + eye )
+    // plus a subtle head-bob offset while walking. The perspective() and the
+    // rotations share the camera's transform-origin (screen center), so the
+    // forward ray maps to screen center and turning pivots about the player's
+    // eye.
+    camEl.style.transform = 'perspective(900px) rotateY(' + (-cam.yaw * 180 / Math.PI) + 'deg) rotateX(' +
+      (-cam.pitch * 180 / Math.PI) + 'deg) translate3d(' +
+      (-cam.x) + 'px,' + (CAM_H + bob) + 'px,' + (-cam.z) + 'px)';
   }
 
   // Move the camera one axis at a time, resolving against the room bounds and
@@ -438,6 +471,21 @@
           ? s.z - s.halfZ - PLAYER_R : s.z + s.halfZ + PLAYER_R;
       }
     }
+    // Safety net: if the camera still overlaps a solid (a multi-corner
+    // artifact or a solid placed under the player), push it out along the
+    // axis of least penetration so it can never end a frame embedded.
+    for (const s of solids) {
+      const x0 = s.x - s.halfX - PLAYER_R, x1 = s.x + s.halfX + PLAYER_R;
+      const z0 = s.z - s.halfZ - PLAYER_R, z1 = s.z + s.halfZ + PLAYER_R;
+      if (cam.x > x0 && cam.x < x1 && cam.z > z0 && cam.z < z1) {
+        const dL = cam.x - x0, dR = x1 - cam.x, dT = cam.z - z0, dB = z1 - cam.z;
+        const m = Math.min(dL, dR, dT, dB);
+        if (m === dL) cam.x = x0;
+        else if (m === dR) cam.x = x1;
+        else if (m === dT) cam.z = z0;
+        else cam.z = z1;
+      }
+    }
   }
 
   function step(dt) {
@@ -447,7 +495,11 @@
     if (keys.l) { dx -= Math.cos(cam.yaw); dz += Math.sin(cam.yaw); }
     if (keys.r) { dx += Math.cos(cam.yaw); dz -= Math.sin(cam.yaw); }
     const len = Math.hypot(dx, dz);
-    if (len > 0) moveAxis(dx / len * MOVE_SPEED * dt, dz / len * MOVE_SPEED * dt);
+    if (len > 0) {
+      moveAxis(dx / len * MOVE_SPEED * dt, dz / len * MOVE_SPEED * dt);
+      bobPhase += dt * 10;
+    }
+    bob = Math.sin(bobPhase) * 6 * Math.min(1, len); // subtle head-bob while walking
     if (keys.tl) cam.yaw += TURN_SPEED * dt;
     if (keys.tr) cam.yaw -= TURN_SPEED * dt;
   }
@@ -635,13 +687,18 @@
       dragging = true;
       dragDist = 0;
       lastPX = e.clientX;
+      lastPY = e.clientY;
     });
     window.addEventListener('pointermove', (e) => {
       if (!dragging) return;
       const dx = e.clientX - lastPX;
+      const dy = e.clientY - lastPY;
       lastPX = e.clientX;
-      dragDist += Math.abs(dx);
+      lastPY = e.clientY;
+      dragDist += Math.abs(dx) + Math.abs(dy);
       cam.yaw -= dx * 0.005; // drag right → turn right
+      cam.pitch -= dy * 0.005; // drag up → look up, drag down → look down
+      cam.pitch = clamp(cam.pitch, -1.05, 1.05); // ±60°
       applyCamera();
     });
     window.addEventListener('pointerup', () => {

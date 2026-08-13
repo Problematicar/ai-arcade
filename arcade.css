@@ -309,8 +309,11 @@ body {
   overflow: hidden;
   border-radius: 10px 10px 4px 4px;
   /* Opaque body so the gaps around the bezel/screen read as cabinet frame
-     instead of showing the hollow interior. */
-  background: linear-gradient(180deg, #15151f, #0d0d15);
+     instead of showing the hollow interior. A faint machine-color wash at
+     the top ties the front to the cabinet's marquee color. */
+  background:
+    linear-gradient(180deg, var(--mc-t, transparent) 0%, transparent 20%),
+    linear-gradient(180deg, #171724, #0d0d15);
 }
 
 .marquee {
@@ -489,7 +492,7 @@ body {
 
 .base span {
   font-size: 9px;
-  color: #555;
+  color: #84849a;
   letter-spacing: 0.3em;
   text-transform: uppercase;
 }
@@ -501,7 +504,11 @@ body {
 }
 
 .side {
-  background: linear-gradient(180deg, #14141d, #0b0b11);
+  /* faint machine-color wash at the top so sides carry each cabinet's
+     identity instead of reading as flat black slabs */
+  background:
+    linear-gradient(180deg, var(--mc-t, transparent) 0%, transparent 32%),
+    linear-gradient(180deg, #1c1c28, #0c0c12);
   overflow: hidden;
   box-shadow: inset 0 0 30px rgba(0,0,0,0.7);
   display: flex;
@@ -522,12 +529,14 @@ body {
 }
 
 .side-neon:first-child { left: 3px; }
-.side-neon:last-child { right: 3px; }
+/* second strip goes on the right edge — :last-child would never match
+   because .side-title is the last child of the side face */
+.side-neon + .side-neon { right: 3px; }
 
 .side-emoji {
-  font-size: 34px;
+  font-size: 38px;
   line-height: 1;
-  opacity: 0.85;
+  opacity: 0.9;
   filter: drop-shadow(0 0 8px var(--mc));
 }
 
@@ -536,7 +545,8 @@ body {
   font-size: 10px;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: #99a;
+  color: #aab;
+  text-shadow: 0 0 8px rgba(0,0,0,0.8);
 }
 
 .top {
@@ -567,6 +577,20 @@ body {
   align-items: center;
   gap: 3px;
   text-align: center;
+}
+
+#reticle {
+  font-size: 18px;
+  line-height: 1;
+  color: rgba(255,255,255,0.28);
+  text-shadow: 0 0 6px rgba(255,255,255,0.2);
+  transition: color 0.2s, text-shadow 0.2s, transform 0.2s;
+}
+
+#reticle.on {
+  color: #ffd93d;
+  text-shadow: 0 0 10px rgba(255,217,61,0.9);
+  transform: scale(1.2);
 }
 
 #game-count {
